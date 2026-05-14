@@ -1,0 +1,14 @@
+{
+  "id": "humaneval-0shot",
+  "name": "HumanEval (0-shot)",
+  "category": "coding",
+  "config": {
+    "tasks": ["humaneval"],
+    "num_fewshot": {"humaneval": 0},
+    "limit": null,
+    "batch_size": 1
+  },
+  "metrics": {"pass@1": "pass@1"},
+  "description": "代码生成能力，164题，Python函数补全（生成式）",
+  "detail": "HumanEval 由 OpenAI 提出，包含 164 个手写的 Python 编程问题。每个问题给出函数签名、文档字符串和函数体，要求模型生成正确的函数实现。使用 pass@k 指标评估，兼容 Chat API。"
+}

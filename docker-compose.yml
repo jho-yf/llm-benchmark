@@ -1,0 +1,17 @@
+services:
+  llm-benchmark:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - benchmark-data:/app/data
+      - benchmark-logs:/app/logs
+    environment:
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+
+volumes:
+  benchmark-data:
+  benchmark-logs:

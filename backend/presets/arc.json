@@ -1,0 +1,14 @@
+{
+  "id": "arc-challenge-25shot",
+  "name": "ARC-Challenge (25-shot)",
+  "category": "reasoning",
+  "config": {
+    "tasks": ["arc_challenge"],
+    "num_fewshot": {"arc_challenge": 25},
+    "limit": null,
+    "batch_size": 1
+  },
+  "metrics": {"accuracy": "acc_norm"},
+  "description": "AI2推理挑战，1172题（多选题，需loglikelihood支持）",
+  "detail": "ARC (AI2 Reasoning Challenge) 由 Allen AI 研究所提出，源自小学科学考试题目。Challenge Set（1172 题）只包含现有信息检索和词共现算法无法正确回答的难题。⚠️ 注意：该任务为多选题类型(multiple_choice)，通过 OpenAI 兼容 Chat API 调用的模型不支持此任务，建议使用 BBH 或 GSM8K。"
+}

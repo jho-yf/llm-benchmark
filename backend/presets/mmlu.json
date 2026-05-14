@@ -1,0 +1,14 @@
+{
+  "id": "mmlu-5shot",
+  "name": "MMLU (5-shot)",
+  "category": "knowledge",
+  "config": {
+    "tasks": ["mmlu"],
+    "num_fewshot": {"mmlu": 5},
+    "limit": null,
+    "batch_size": 1
+  },
+  "metrics": {"accuracy": "acc"},
+  "description": "大规模多任务语言理解，57个学科，14042题（多选题，需loglikelihood支持）",
+  "detail": "MMLU (Massive Multitask Language Understanding) 是衡量大模型世界知识和问题解决能力的核心基准。涵盖 STEM、人文、社科等 57 个学科领域。⚠️ 注意：该任务为多选题类型(multiple_choice)，通过 OpenAI 兼容 Chat API 调用的模型不支持此任务，建议使用 BBH 或 GSM8K。"
+}

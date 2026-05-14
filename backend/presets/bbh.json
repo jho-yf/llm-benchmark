@@ -1,0 +1,14 @@
+{
+  "id": "bbh-3shot",
+  "name": "BBH (3-shot CoT)",
+  "category": "reasoning",
+  "config": {
+    "tasks": ["bbh_cot_fewshot"],
+    "num_fewshot": {"bbh_cot_fewshot": 3},
+    "limit": null,
+    "batch_size": 1
+  },
+  "metrics": {"accuracy": "acc"},
+  "description": "Big-Bench Hard，6511题，逻辑推理（生成式）",
+  "detail": "BBH (Big-Bench Hard) 从 Google 的 BIG-bench 中筛选出 23 个最具挑战性的任务（6511 题），这些任务此前的模型表现均低于人类平均。涵盖逻辑推导、因果判断、多语言理解、空间推理、常识推理等。使用 Chain-of-Thought 提示，通过生成式评测，兼容 Chat API。"
+}

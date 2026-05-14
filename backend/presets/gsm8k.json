@@ -1,0 +1,14 @@
+{
+  "id": "gsm8k-8shot",
+  "name": "GSM8K (8-shot)",
+  "category": "math",
+  "config": {
+    "tasks": ["gsm8k"],
+    "num_fewshot": {"gsm8k": 8},
+    "limit": null,
+    "batch_size": 1
+  },
+  "metrics": {"accuracy": "exact_match"},
+  "description": "小学数学应用题，1319题，多步推理（生成式）",
+  "detail": "GSM8K (Grade School Math 8K) 包含 8500+ 道小学数学应用题（测试集 1319 题），要求模型具备 2-8 步的多步算术推理能力。题目涵盖基础四则运算、比例、单位换算等。该基准主要测试模型的链式推理 (Chain-of-Thought) 能力，兼容 Chat API。"
+}
