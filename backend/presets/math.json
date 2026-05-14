@@ -6,7 +6,8 @@
     "tasks": ["hendrycks_math"],
     "num_fewshot": {"hendrycks_math": 4},
     "limit": null,
-    "batch_size": 1
+    "batch_size": 1,
+    "generation_kwargs": {"max_gen_toks": 1024}
   },
   "metrics": {"accuracy": "exact_match"},
   "description": "高等数学竞赛题，5000题（生成式）",

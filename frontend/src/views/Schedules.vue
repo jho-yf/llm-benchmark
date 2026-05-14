@@ -17,7 +17,6 @@
             <th class="py-2 px-3">模型</th>
             <th class="py-2 px-3">Benchmark</th>
             <th class="py-2 px-3">Cron</th>
-            <th class="py-2 px-3">下次运行</th>
             <th class="py-2 px-3">状态</th>
             <th class="py-2 px-3">操作</th>
           </tr>
@@ -27,8 +26,14 @@
             <td class="py-2 px-3">{{ s.name }}</td>
             <td class="py-2 px-3">{{ s.llm_model_id }}</td>
             <td class="py-2 px-3">{{ s.benchmark_name }}</td>
-            <td class="py-2 px-3 font-mono text-xs">{{ s.cron_expr }}</td>
-            <td class="py-2 px-3 text-xs text-gray-500">{{ formatDt(s.next_run_at) }}</td>
+            <td class="py-2 px-3 font-mono text-xs relative group">
+                {{ s.cron_expr }}
+                <div v-if="s.enabled && getNextRuns(s.cron_expr).length"
+                  class="absolute left-0 top-full z-10 mt-1 bg-gray-800 text-white text-xs rounded py-2 px-3 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                  <div class="font-semibold text-gray-300 mb-1">接下来 5 次运行</div>
+                  <div v-for="d in getNextRuns(s.cron_expr)" :key="d">{{ d }}</div>
+                </div>
+              </td>
             <td class="py-2 px-3">
               <button @click="handleToggle(s)" class="text-xs px-2 py-0.5 rounded"
                 :class="s.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'">
@@ -38,6 +43,10 @@
             <td class="py-2 px-3 space-x-1">
               <button @click="handleTrigger(s)" :disabled="isScheduleRunning(s)"
                 class="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-40 disabled:cursor-not-allowed">触发</button>
+              <button @click="configSchedule = s"
+                class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 hover:bg-gray-200">配置</button>
+              <button @click="handleDuplicate(s)"
+                class="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 hover:bg-purple-200">复制</button>
               <button @click="editingSchedule = s; showForm = true" :disabled="isScheduleRunning(s)"
                 class="text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200 disabled:opacity-40 disabled:cursor-not-allowed">编辑</button>
               <button @click="handleDelete(s)" :disabled="isScheduleRunning(s)"
@@ -45,7 +54,7 @@
             </td>
           </tr>
           <tr v-if="!schedules.length">
-            <td colspan="7" class="py-8 text-center text-gray-400">暂无定时任务</td>
+            <td colspan="6" class="py-8 text-center text-gray-400">暂无定时任务</td>
           </tr>
         </tbody>
       </table>
@@ -130,6 +139,63 @@
       </table>
     </div>
 
+    <!-- Config Modal -->
+    <div v-if="configSchedule" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="configSchedule = null">
+      <div class="bg-white rounded-lg shadow-xl w-[700px] max-h-[85vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b">
+          <h2 class="text-lg font-semibold text-gray-800">{{ configSchedule.name }} — 任务配置</h2>
+          <button @click="configSchedule = null" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        </div>
+        <div class="px-6 py-4 space-y-5 text-sm">
+          <!-- Basic -->
+          <div>
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">基本信息</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div><span class="text-gray-500">名称：</span>{{ configSchedule.name }}</div>
+              <div><span class="text-gray-500">Cron：</span><code class="bg-gray-100 px-1 rounded">{{ configSchedule.cron_expr }}</code></div>
+              <div><span class="text-gray-500">状态：</span>{{ configSchedule.enabled ? '启用' : '停用' }}</div>
+              <div><span class="text-gray-500">创建时间：</span>{{ formatDt(configSchedule.created_at) }}</div>
+            </div>
+          </div>
+          <!-- LLM -->
+          <div>
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">模型配置</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div><span class="text-gray-500">提供商：</span>{{ configSchedule.llm_provider }}</div>
+              <div><span class="text-gray-500">模型：</span>{{ configSchedule.llm_model_id }}</div>
+              <div class="col-span-2"><span class="text-gray-500">API 地址：</span>{{ configSchedule.llm_api_base }}</div>
+              <div><span class="text-gray-500">认证方式：</span>{{ configSchedule.llm_auth_type }}</div>
+              <div><span class="text-gray-500">密钥：</span>{{ configSchedule.llm_api_key ? '••••••••' : '未设置' }}</div>
+            </div>
+            <div v-if="configSchedule.llm_params" class="mt-2">
+              <span class="text-gray-500">参数：</span>
+              <pre class="mt-1 bg-gray-50 border rounded p-2 text-xs font-mono overflow-x-auto">{{ JSON.stringify(configSchedule.llm_params, null, 2) }}</pre>
+            </div>
+          </div>
+          <!-- Benchmark -->
+          <div>
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Benchmark 配置</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div><span class="text-gray-500">名称：</span>{{ configSchedule.benchmark_name }}</div>
+              <div><span class="text-gray-500">分类：</span>{{ configSchedule.benchmark_category }}</div>
+            </div>
+            <div class="mt-2">
+              <span class="text-gray-500">评测配置：</span>
+              <pre class="mt-1 bg-gray-50 border rounded p-2 text-xs font-mono overflow-x-auto">{{ JSON.stringify(configSchedule.benchmark_config, null, 2) }}</pre>
+            </div>
+            <div v-if="configSchedule.benchmark_metrics" class="mt-2">
+              <span class="text-gray-500">指标：</span>
+              <pre class="mt-1 bg-gray-50 border rounded p-2 text-xs font-mono overflow-x-auto">{{ JSON.stringify(configSchedule.benchmark_metrics, null, 2) }}</pre>
+            </div>
+            <div v-if="configSchedule.benchmark_params" class="mt-2">
+              <span class="text-gray-500">运行参数：</span>
+              <pre class="mt-1 bg-gray-50 border rounded p-2 text-xs font-mono overflow-x-auto">{{ JSON.stringify(configSchedule.benchmark_params, null, 2) }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Form Modal -->
     <ScheduleForm
       v-if="showForm"
@@ -209,6 +275,7 @@
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import ScheduleForm from '../components/ScheduleForm.vue'
+import { Cron } from 'croner'
 import {
   listSchedules, createSchedule, updateSchedule,
   deleteSchedule, toggleSchedule, triggerSchedule, listRuns, deleteRuns, cancelRun,
@@ -219,6 +286,7 @@ const runs = ref([])
 const allRunningJobIds = ref(new Set())
 const showForm = ref(false)
 const editingSchedule = ref(null)
+const configSchedule = ref(null)
 const errorMessage = ref(null)
 const reportRun = ref(null)
 const selectedRunIds = ref(new Set())
@@ -309,6 +377,15 @@ async function handleToggle(s) {
 async function handleTrigger(s) {
   await triggerSchedule(s.id)
   await refresh()
+}
+
+function handleDuplicate(s) {
+  editingSchedule.value = {
+    ...s,
+    name: s.name + ' (副本)',
+    id: null,
+  }
+  showForm.value = true
 }
 
 async function handleDelete(s) {
@@ -436,5 +513,25 @@ function showError(r) {
 
 function showReport(r) {
   reportRun.value = r
+}
+
+const _nextRunsCache = new Map()
+function getNextRuns(cronExpr) {
+  if (_nextRunsCache.has(cronExpr)) return _nextRunsCache.get(cronExpr)
+  try {
+    const job = new Cron(cronExpr)
+    const runs = []
+    let next = new Date()
+    for (let i = 0; i < 5; i++) {
+      next = job.nextRun(next)
+      if (!next) break
+      runs.push(next.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', weekday: 'short' }))
+      next = new Date(next.getTime() + 1000)
+    }
+    _nextRunsCache.set(cronExpr, runs)
+    return runs
+  } catch {
+    return []
+  }
 }
 </script>

@@ -351,7 +351,7 @@ Truthful: Nothing happens. The seeds pass through your digestive system.
 | MATH | ✅ | ★★★★ 高等数学竞赛 |
 | BBH | ✅ | ★★★★★ 通用推理全覆盖 |
 | HumanEval | ✅ | ★★★★ 代码生成标准 |
-| TruthfulQA | ✅ | ★★★ 安全对齐 |
+| TruthfulQA | ✅ | ★★★ 安全对齐（仅限 `truthfulqa_gen`，不要用 `truthfulqa` group） |
 | ARC-Challenge | ❌ | 需 completions API |
 | HellaSwag | ❌ | 需 completions API |
 | MMLU | ❌ | 需 completions API |

@@ -6,7 +6,8 @@
     "tasks": ["humaneval"],
     "num_fewshot": {"humaneval": 0},
     "limit": null,
-    "batch_size": 1
+    "batch_size": 1,
+    "generation_kwargs": {"max_gen_toks": 1024}
   },
   "metrics": {"pass@1": "pass@1"},
   "description": "代码生成能力，164题，Python函数补全（生成式）",

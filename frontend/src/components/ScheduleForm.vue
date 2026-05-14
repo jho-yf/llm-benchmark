@@ -74,6 +74,11 @@
               <label class="label">默认参数 (JSON, 可选)</label>
               <input v-model="llmParamsStr" class="input" placeholder='{"temperature": 0, "max_tokens": 2048}' />
             </div>
+            <div>
+              <label class="label">并发请求数</label>
+              <input v-model.number="numConcurrent" type="number" min="1" max="64" class="input" />
+              <p class="text-xs text-gray-400 mt-0.5">同时发送的 API 请求数，增大可加速评测（建议 4-16）</p>
+            </div>
             <div class="flex items-center gap-2">
               <button @click="handleTestConnection" class="px-3 py-1 text-sm border rounded hover:bg-gray-50" :disabled="testing">
                 {{ testing ? '测试中...' : '测试连通性' }}
@@ -180,6 +185,7 @@ const categories = ref([])
 const selectedPreset = ref('')
 const testing = ref(false)
 const connResult = ref(null)
+const numConcurrent = ref(props.initial?.llm_params?.num_concurrent ?? 8)
 
 const selectedPresetDetail = computed(() => {
   const p = presets.value.find(x => x.id === selectedPreset.value)
@@ -223,10 +229,12 @@ async function handleTestConnection() {
 }
 
 function handleSave() {
+  const llm = { ...form.llm }
+  llm.params = { ...(llm.params || {}), num_concurrent: numConcurrent.value }
   const payload = {
     name: form.name,
     cron_expr: form.cron_expr,
-    llm: { ...form.llm },
+    llm,
     benchmark: { ...form.benchmark },
   }
   emit('save', payload)

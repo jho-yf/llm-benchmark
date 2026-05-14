@@ -6,7 +6,8 @@
     "tasks": ["gsm8k"],
     "num_fewshot": {"gsm8k": 8},
     "limit": null,
-    "batch_size": 1
+    "batch_size": 1,
+    "generation_kwargs": {"max_gen_toks": 512}
   },
   "metrics": {"accuracy": "exact_match"},
   "description": "小学数学应用题，1319题，多步推理（生成式）",

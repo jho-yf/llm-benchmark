@@ -6,7 +6,8 @@
     "tasks": ["bbh_cot_fewshot"],
     "num_fewshot": {"bbh_cot_fewshot": 3},
     "limit": null,
-    "batch_size": 1
+    "batch_size": 1,
+    "generation_kwargs": {"max_gen_toks": 1024}
   },
   "metrics": {"accuracy": "acc"},
   "description": "Big-Bench Hard，6511题，逻辑推理（生成式）",
