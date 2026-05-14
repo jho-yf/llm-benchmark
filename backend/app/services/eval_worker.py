@@ -183,7 +183,14 @@ def main():
             "configs": results.get("configs", {}) if isinstance(results, dict) else {},
         }
 
-    sys.stdout.write(json.dumps(output))
+    def _sanitize(obj):
+        if isinstance(obj, dict):
+            return {k: _sanitize(v) for k, v in obj.items() if not callable(v)}
+        if isinstance(obj, list):
+            return [_sanitize(v) for v in obj]
+        return obj
+
+    sys.stdout.write(json.dumps(_sanitize(output)))
 
 
 if __name__ == "__main__":
