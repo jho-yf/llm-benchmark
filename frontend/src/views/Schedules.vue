@@ -67,21 +67,27 @@
         <button @click="refresh" :disabled="refreshing" class="text-gray-400 hover:text-gray-600 disabled:text-gray-300" title="刷新">
           <svg class="w-4 h-4" :class="refreshing ? 'animate-spin' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M4.93 9a8 8 0 0113.14 0M19.07 15a8 8 0 01-13.14 0"/></svg>
         </button>
-        <select v-model="filterScheduleId" @change="refresh" class="border border-gray-300 rounded px-2 py-1 text-sm">
-          <option value="">全部任务</option>
-          <option v-for="s in schedules" :key="s.id" :value="s.id">{{ s.name }}</option>
-        </select>
-        <select v-model="filterStatus" @change="refresh" class="border border-gray-300 rounded px-2 py-1 text-sm">
-          <option value="">全部状态</option>
-          <option value="running">运行中</option>
-          <option value="completed">已完成</option>
-          <option value="failed">失败</option>
-          <option value="cancelled">已终止</option>
-        </select>
-        <button v-if="selectedRunIds.size > 0" @click="handleDeleteRuns"
-          class="ml-auto text-xs px-3 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200">
-          删除选中 ({{ selectedRunIds.size }})
-        </button>
+        <label class="flex items-center gap-1 text-xs text-gray-500 cursor-pointer select-none">
+          <input type="checkbox" v-model="autoRefresh" class="accent-blue-600" />
+          自动刷新
+        </label>
+        <div class="ml-auto flex items-center gap-3">
+          <select v-model="filterScheduleId" @change="refresh" class="border border-gray-300 rounded px-2 py-1 text-sm">
+            <option value="">全部任务</option>
+            <option v-for="s in schedules" :key="s.id" :value="s.id">{{ s.name }}</option>
+          </select>
+          <select v-model="filterStatus" @change="refresh" class="border border-gray-300 rounded px-2 py-1 text-sm">
+            <option value="">全部状态</option>
+            <option value="running">运行中</option>
+            <option value="completed">已完成</option>
+            <option value="failed">失败</option>
+            <option value="cancelled">已终止</option>
+          </select>
+          <button v-if="selectedRunIds.size > 0" @click="handleDeleteRuns"
+            class="text-xs px-3 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200">
+            删除选中 ({{ selectedRunIds.size }})
+          </button>
+        </div>
       </div>
       <table class="w-full text-sm table-fixed">
         <colgroup>
@@ -298,7 +304,9 @@ const logProgressPct = ref(-1)
 const refreshing = ref(false)
 const filterScheduleId = ref('')
 const filterStatus = ref('')
+const autoRefresh = ref(true)
 let logEventSource = null
+let autoRefreshTimer = null
 
 const isAllSelected = computed(() => {
   const selectable = runs.value.filter(r => r.status !== 'running')
@@ -348,10 +356,16 @@ async function refresh() {
   }
 }
 
-onMounted(refresh)
+onMounted(() => {
+  refresh()
+  autoRefreshTimer = setInterval(() => {
+    if (autoRefresh.value) refresh()
+  }, 5000)
+})
 
 onUnmounted(() => {
   closeLog()
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer)
 })
 
 function closeForm() {
