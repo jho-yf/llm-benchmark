@@ -3,12 +3,12 @@
   "name": "HellaSwag (10-shot)",
   "category": "reasoning",
   "config": {
-    "tasks": ["hellaswag"],
-    "num_fewshot": {"hellaswag": 10},
+    "tasks": ["hellaswag_gen"],
+    "num_fewshot": {"hellaswag_gen": 10},
     "limit": null,
     "batch_size": 1
   },
-  "metrics": {"accuracy": "acc_norm"},
-  "description": "常识推理，10042题（多选题，需loglikelihood支持）",
-  "detail": "HellaSwag 包含约 10 万道句子完形填空题（测试集 10042 题）。给定一个情境描述，要求从 4 个选项中选出最合理的后续发展。⚠️ 注意：该任务为多选题类型(multiple_choice)，通过 OpenAI 兼容 Chat API 调用的模型不支持此任务，建议使用 BBH 或 GSM8K。"
+  "metrics": {"accuracy": "exact_match"},
+  "description": "常识推理，10042题（生成式，兼容Chat API）",
+  "detail": "HellaSwag 包含约 10 万道句子完形填空题（测试集 10042 题）。给定一个情境描述，要求从 4 个选项中选出最合理的后续发展。使用生成式评估，模型直接输出选项字母，兼容 Chat API。"
 }

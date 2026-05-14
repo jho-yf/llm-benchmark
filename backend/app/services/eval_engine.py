@@ -121,6 +121,12 @@ class EvalEngine:
 
             stdout = proc.stdout.read()
             result = json.loads(stdout.decode())
+            if result.get("error"):
+                logger.warning("Eval returned error for run %d: %s", run_id, result["error"])
+                self._update_run_status(
+                    db_url, run_id, "failed", json.dumps(result)
+                )
+                return result
             self._update_run_status(
                 db_url, run_id, "completed", json.dumps(result)
             )

@@ -374,7 +374,7 @@ function closeForm() {
 }
 
 async function handleSave(payload) {
-  if (editingSchedule.value) {
+  if (editingSchedule.value?.id) {
     await updateSchedule(editingSchedule.value.id, payload)
   } else {
     await createSchedule(payload)

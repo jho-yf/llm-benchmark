@@ -16,7 +16,10 @@ class LLMClient:
         params: dict | None = None,
     ):
         self.model_id = model_id
-        self.default_params = params or {}
+        self.default_params = {
+            k: v for k, v in (params or {}).items()
+            if k not in ("num_concurrent",)
+        }
 
         if auth_type == "bearer":
             self.client = OpenAI(

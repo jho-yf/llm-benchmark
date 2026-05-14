@@ -116,30 +116,54 @@ def main():
 
     task_list = tasks if isinstance(tasks, list) else [tasks]
 
+    # Auto-map multiple_choice tasks to generative variants for Chat API compatibility
+    _GEN_MAP = {
+        "mmlu": "mmlu_generative",
+        "arc_challenge": "arc_challenge_gen",
+        "hellaswag": "hellaswag_gen",
+    }
+    task_list = [_GEN_MAP.get(t, t) for t in task_list]
+    if isinstance(num_fewshot, dict):
+        num_fewshot = {_GEN_MAP.get(k, k): v for k, v in num_fewshot.items()}
+
     # Expand task groups and filter out tasks incompatible with Chat API
     # Both "loglikelihood" and "multiple_choice" output types call lm.loglikelihood()
     _CHAT_INCOMPATIBLE = {"loglikelihood", "multiple_choice"}
-    tm = TaskManager(include_path=None)
+
+    def _collect_output_types(obj):
+        """Recursively collect OUTPUT_TYPE from nested task dicts/groups."""
+        types = set()
+        if isinstance(obj, dict):
+            for v in obj.values():
+                types |= _collect_output_types(v)
+        else:
+            ot = getattr(obj, "OUTPUT_TYPE", None)
+            if ot is None and hasattr(obj, "config"):
+                ot = getattr(obj.config, "output_type", None)
+            types.add(ot)
+        return types
+
+    # Register custom generative tasks for Chat API compatibility
+    custom_tasks_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tasks")
+    include_paths = [custom_tasks_dir] if os.path.isdir(custom_tasks_dir) else None
+    tm = TaskManager(include_path=include_paths)
     resolved = []
     for t in task_list:
         try:
             task_dict = tm.load_task_or_group(t)
-            if isinstance(task_dict, dict):
-                for name, obj in task_dict.items():
-                    ot = getattr(obj, "OUTPUT_TYPE", None) or getattr(obj, "output_type", None)
-                    if ot not in _CHAT_INCOMPATIBLE:
-                        resolved.append(name)
-                    else:
-                        sys.stderr.write(f"Skipping {name}: requires loglikelihood (incompatible with Chat API)\n")
+            output_types = _collect_output_types(task_dict)
+            if output_types & _CHAT_INCOMPATIBLE:
+                sys.stderr.write(f"Skipping {t}: requires loglikelihood (incompatible with Chat API)\n")
             else:
                 resolved.append(t)
-        except Exception:
-            resolved.append(t)
+        except Exception as e:
+            sys.stderr.write(f"Skipping {t}: failed to load - {e}\n")
     task_list = resolved
 
     if not task_list:
-        sys.stderr.write("No compatible tasks found after filtering.\n")
-        sys.stdout.write(json.dumps({"results": {}, "configs": {}}))
+        msg = "所有任务均不兼容 Chat API（需要 loglikelihood 支持）。被过滤的任务: " + ", ".join(tasks if isinstance(tasks, list) else [tasks])
+        sys.stderr.write(msg + "\n")
+        sys.stdout.write(json.dumps({"error": msg, "results": {}, "configs": {}}))
         return
 
     if isinstance(num_fewshot, dict):
@@ -161,6 +185,21 @@ def main():
 
     model_args_str = ",".join(f"{k}={v}" for k, v in model_args_dict.items())
 
+    # Monkey-patch lm-eval build_qa_turn to handle non-string answers (e.g. [-9, 9])
+    import lm_eval.api.task as _task_mod
+    _orig_build_qa_turn = _task_mod.ConfigurableTask.build_qa_turn
+
+    def _safe_build_qa_turn(self, *, q=None, c=None, a=None, gen_prefix=None, tgt_delim=' ', few_delim='\n\n'):
+        if isinstance(a, list):
+            a = [str(x) for x in a]
+            if len(a) == 1:
+                a = a[0]
+        elif a is not None and not isinstance(a, str):
+            a = str(a)
+        return _orig_build_qa_turn(self, q=q, c=c, a=a, gen_prefix=gen_prefix, tgt_delim=tgt_delim, few_delim=few_delim)
+
+    _task_mod.ConfigurableTask.build_qa_turn = _safe_build_qa_turn
+
     results = evaluator.simple_evaluate(
         model="local-chat-completions",
         model_args=model_args_str,
@@ -170,6 +209,8 @@ def main():
         batch_size=batch_size,
         apply_chat_template=True,
         gen_kwargs=gen_kwargs,
+        confirm_run_unsafe_code=True,
+        task_manager=tm,
     )
 
     if hasattr(results, "results"):

@@ -70,6 +70,14 @@
               <label class="label">密钥 / Token</label>
               <input v-model="form.llm.api_key" type="password" class="input" placeholder="sk-..." />
             </div>
+            <div class="flex items-center gap-2">
+              <button @click="handleTestConnection" class="px-3 py-1 text-sm border rounded hover:bg-gray-50" :disabled="testing">
+                {{ testing ? '测试中...' : '测试连通性' }}
+              </button>
+              <span v-if="connResult" class="text-sm" :class="connResult.success ? 'text-green-600' : 'text-red-600'">
+                {{ connResult.message }}
+              </span>
+            </div>
             <div>
               <label class="label">默认参数 (JSON, 可选)</label>
               <input v-model="llmParamsStr" class="input" placeholder='{"temperature": 0, "max_tokens": 2048}' />
@@ -78,14 +86,6 @@
               <label class="label">并发请求数</label>
               <input v-model.number="numConcurrent" type="number" min="1" max="64" class="input" />
               <p class="text-xs text-gray-400 mt-0.5">同时发送的 API 请求数，增大可加速评测（建议 4-16）</p>
-            </div>
-            <div class="flex items-center gap-2">
-              <button @click="handleTestConnection" class="px-3 py-1 text-sm border rounded hover:bg-gray-50" :disabled="testing">
-                {{ testing ? '测试中...' : '测试连通性' }}
-              </button>
-              <span v-if="connResult" class="text-sm" :class="connResult.success ? 'text-green-600' : 'text-red-600'">
-                {{ connResult.message }}
-              </span>
             </div>
           </div>
         </fieldset>
