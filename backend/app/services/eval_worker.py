@@ -116,7 +116,9 @@ def main():
 
     task_list = tasks if isinstance(tasks, list) else [tasks]
 
-    # Expand task groups and filter out loglikelihood-only tasks (incompatible with Chat API)
+    # Expand task groups and filter out tasks incompatible with Chat API
+    # Both "loglikelihood" and "multiple_choice" output types call lm.loglikelihood()
+    _CHAT_INCOMPATIBLE = {"loglikelihood", "multiple_choice"}
     tm = TaskManager(include_path=None)
     resolved = []
     for t in task_list:
@@ -125,7 +127,7 @@ def main():
             if isinstance(task_dict, dict):
                 for name, obj in task_dict.items():
                     ot = getattr(obj, "OUTPUT_TYPE", None) or getattr(obj, "output_type", None)
-                    if ot != "loglikelihood":
+                    if ot not in _CHAT_INCOMPATIBLE:
                         resolved.append(name)
                     else:
                         sys.stderr.write(f"Skipping {name}: requires loglikelihood (incompatible with Chat API)\n")
