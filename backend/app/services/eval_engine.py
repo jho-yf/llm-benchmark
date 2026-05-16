@@ -118,6 +118,13 @@ class EvalEngine:
                 current_line += text
                 if '\r' in current_line or '\n' in current_line:
                     # Detect current benchmark from [benchmark 1/3] task_name stage
+                    if "[partial_result]" in current_line:
+                        try:
+                            partial_json = current_line[current_line.index("[partial_result]") + len("[partial_result]"):].strip()
+                            self._update_partial_result(db_url, run_id, partial_json)
+                        except Exception:
+                            pass
+
                     bm = benchmark_re.search(current_line)
                     if bm:
                         benchmark_idx = bm.group(1)
@@ -203,6 +210,20 @@ class EvalEngine:
             session.execute(
                 text("UPDATE test_run SET progress=:progress WHERE id=:id"),
                 {"progress": progress, "id": run_id},
+            )
+            session.commit()
+
+    def _update_partial_result(self, db_url: str, run_id: int, result_json: str):
+        """Write partial result to DB while run is still in progress."""
+        from sqlalchemy import create_engine, text
+        from sqlalchemy.orm import Session
+
+        sync_url = db_url.replace("+aiosqlite", "")
+        engine = create_engine(sync_url)
+        with Session(engine) as session:
+            session.execute(
+                text("UPDATE test_run SET result=:result WHERE id=:id"),
+                {"result": result_json, "id": run_id},
             )
             session.commit()
 

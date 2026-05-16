@@ -485,6 +485,13 @@ def main():
         sys.stdout.write(json.dumps({"error": msg, "results": {}, "configs": {}}))
         return
 
+    def _sanitize(obj):
+        if isinstance(obj, dict):
+            return {k: _sanitize(v) for k, v in obj.items() if not callable(v)}
+        if isinstance(obj, list):
+            return [_sanitize(v) for v in obj]
+        return obj
+
     # Run each task separately so we can show per-benchmark progress
     merged = {"results": {}, "configs": {}, "n-samples": {}, "n-shot": {}, "versions": {}}
     total = len(task_list)
@@ -507,20 +514,14 @@ def main():
                 if key in batch and isinstance(batch[key], dict):
                     merged[key].update(batch[key])
             sys.stderr.write(f"[benchmark {idx + 1}/{total}] {task_name} done\n")
+            partial = {**merged, "token_usage": dict(_token_usage)}
+            sys.stderr.write(f"[partial_result] {json.dumps(_sanitize(partial))}\n")
             sys.stderr.flush()
         except Exception as e:
             sys.stderr.write(f"[benchmark {idx + 1}/{total}] {task_name} failed: {e}\n")
             sys.stderr.flush()
 
     output = {**merged, "token_usage": dict(_token_usage)}
-
-    def _sanitize(obj):
-        if isinstance(obj, dict):
-            return {k: _sanitize(v) for k, v in obj.items() if not callable(v)}
-        if isinstance(obj, list):
-            return [_sanitize(v) for v in obj]
-        return obj
-
     sys.stdout.write(json.dumps(_sanitize(output)))
 
 

@@ -86,6 +86,19 @@ async def stream_log(run_id: int, db: AsyncSession = Depends(get_db)):
             return
 
         with open(path) as f:
+            # Seek to last 500 lines for large log files
+            try:
+                f.seek(0, 2)
+                file_size = f.tell()
+                chunk = min(file_size, 128 * 1024)
+                f.seek(max(0, file_size - chunk))
+                tail_lines = f.read().splitlines()[-500:]
+                for l in tail_lines:
+                    if l:
+                        yield f"data: {l}\n\n"
+            except Exception:
+                f.seek(0)
+
             while True:
                 line = f.readline()
                 if line:
