@@ -200,9 +200,16 @@ class EvalEngine:
             Path(payload_file.name).unlink(missing_ok=True)
 
     def _sync_engine(self, db_url: str):
-        from sqlalchemy import create_engine
+        from sqlalchemy import create_engine, event
         sync_url = db_url.replace("+aiosqlite", "")
-        return create_engine(sync_url, connect_args={"timeout": 30})
+        eng = create_engine(sync_url, connect_args={"timeout": 30})
+
+        @event.listens_for(eng, "connect")
+        def _set_wal(dbapi_conn, _):
+            dbapi_conn.execute("PRAGMA journal_mode=WAL")
+            dbapi_conn.execute("PRAGMA busy_timeout=30000")
+
+        return eng
 
     def _update_progress(self, db_url: str, run_id: int, progress: str):
         """Update progress field in DB."""
@@ -260,7 +267,13 @@ class EvalEngine:
 
         log_file = LOGS_DIR / f"run_{uuid.uuid4().hex[:8]}.log"
         sync_url = db_url.replace("+aiosqlite", "")
+        from sqlalchemy import event as sa_event
         engine = create_engine(sync_url, connect_args={"timeout": 30})
+
+        @sa_event.listens_for(engine, "connect")
+        def _set_wal(dbapi_conn, _):
+            dbapi_conn.execute("PRAGMA journal_mode=WAL")
+            dbapi_conn.execute("PRAGMA busy_timeout=30000")
         with Session(engine) as session:
             result = session.execute(
                 text(
