@@ -428,9 +428,11 @@ const reportTaskDetails = computed(() => {
 })
 
 watch(logLines, () => {
-  nextTick(() => {
-    if (logContainer.value) logContainer.value.scrollTop = logContainer.value.scrollHeight
-  })
+  if (!_logReplaying) {
+    nextTick(() => {
+      if (logContainer.value) logContainer.value.scrollTop = logContainer.value.scrollHeight
+    })
+  }
 })
 
 function isScheduleRunning(s) {
@@ -565,6 +567,28 @@ async function handleCancelRun(id) {
   await refresh()
 }
 
+let _logReplaying = false
+
+function _initLogBenchmarksFromProgress(runId) {
+  const run = runs.value.find(r => r.id === runId)
+  if (!run?.progress) return
+  // progress format: "(2/3) longbench: 134/3950" or "(2/3) longbench running"
+  const m = run.progress.match(/^\((\d+)\/(\d+)\)\s+(\S+)/)
+  if (!m) return
+  const bmIdx = parseInt(m[1])
+  const bmTotal = parseInt(m[2])
+  const taskKey = m[3].replace(/:$/, '')
+  // Pre-populate all benchmark slots as pending
+  for (let i = 1; i <= bmTotal; i++) {
+    logBenchmarks.value.push({ name: `benchmark-${i}`, stage: '', progress: '', progressPct: 0 })
+  }
+  // Mark current as running
+  const entry = logBenchmarks.value[bmIdx - 1]
+  entry.name = taskKey
+  entry.stage = 'running'
+  logProgressPct.value = Math.round((bmIdx - 1) / bmTotal * 100)
+}
+
 function toggleLog(runId) {
   if (expandedLogId.value === runId) {
     closeLog()
@@ -577,14 +601,27 @@ function toggleLog(runId) {
   logProgressPct.value = -1
   logStage.value = ''
   logBenchmarks.value = []
+  _initLogBenchmarksFromProgress(runId)
   let currentBmEntry = null  // tracks the currently running benchmark entry
   let currentBmTotal = 1
   let currentBmIdx = 1
   const numRe = /(\d+)\/(\d+)/
   const bmRe = /\[benchmark (\d+)\/(\d+)\]\s+(\S+)(?:\s+(\S+))?/
+  _logReplaying = true
   logEventSource = new EventSource(`/api/runs/${runId}/log`)
   logEventSource.onmessage = (e) => {
     const line = e.data
+
+    if (line === '[log_history_end]') {
+      _logReplaying = false
+      nextTick(() => {
+        if (logContainer.value) logContainer.value.scrollTop = logContainer.value.scrollHeight
+      })
+      return
+    }
+
+    if (line.startsWith('[partial_result]')) return
+
     // Keep at most 500 lines, drop oldest 100 when exceeded
     if (logLines.value.length >= 500) logLines.value.splice(0, 100)
     logLines.value.push(line + '\n')
@@ -646,6 +683,7 @@ function toggleLog(runId) {
 }
 
 function closeLog() {
+  _logReplaying = false
   if (logEventSource) {
     logEventSource.close()
     logEventSource = null

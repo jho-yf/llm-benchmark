@@ -99,6 +99,8 @@ async def stream_log(run_id: int, db: AsyncSession = Depends(get_db)):
             except Exception:
                 f.seek(0)
 
+            yield "data: [log_history_end]\n\n"
+
             while True:
                 line = f.readline()
                 if line:
