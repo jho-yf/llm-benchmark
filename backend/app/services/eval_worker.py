@@ -4,6 +4,7 @@ import json
 import os
 import sys
 
+os.environ.setdefault("HF_ALLOW_CODE_EVAL", "1")
 
 # Global token usage accumulator
 _token_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
@@ -355,6 +356,7 @@ def main():
     _GEN_MAP = {
         "mmlu": "mmlu_generative",
         "ceval": "ceval_gen",
+        "humaneval": "humaneval_instruct",
     }
 
     def _map_tasks(task_list):

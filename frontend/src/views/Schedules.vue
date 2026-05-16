@@ -608,15 +608,7 @@ function toggleLog(runId) {
         currentBmIdx = bmIdx
       }
 
-      const nm = numRe.exec(line)
-      if (nm) {
-        entry.stage = 'running'
-        entry.progress = `${nm[1]}/${nm[2]}`
-        entry.progressPct = Math.round(parseInt(nm[1]) / parseInt(nm[2]) * 100)
-        const taskPct = parseInt(nm[1]) / parseInt(nm[2])
-        const perBm = 100 / bmTotal
-        logProgressPct.value = Math.min(100, Math.round(((bmIdx - 1) + taskPct) * perBm))
-      } else if (stage) {
+      if (stage) {
         entry.stage = stage
         if (stage === 'done' || stage === 'failed') {
           entry.progress = ''
