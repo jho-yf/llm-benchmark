@@ -66,18 +66,46 @@ class EvalEngine:
         _running[run_id] = proc
 
         progress_re = re.compile(r"(\d+)/(\d+)")
+        benchmark_re = re.compile(r"\[benchmark (\d+)/(\d+)\]\s+(\S+)(?:\s+(\S+))?")
         last_progress = ""
         last_progress_update = 0
+        current_benchmark = ""
+        benchmark_total = ""
+        benchmark_idx = ""
+        current_stage = ""
+
+        STALL_TIMEOUT = 600  # 10 minutes with no output = stuck
 
         try:
             log_file = open(log_path, "w") if log_path else None
             stderr_chunks = []
             current_line = ""
+            last_output_time = time.time()
 
             while True:
+                # Use select to avoid blocking forever if subprocess is stuck
+                if hasattr(proc.stderr, 'fileno') and proc.poll() is None:
+                    ready, _, _ = sel.select([proc.stderr], [], [], 30)
+                    if not ready:
+                        # No data for 30s, check if stalled
+                        if time.time() - last_output_time > STALL_TIMEOUT:
+                            logger.error("Eval subprocess stalled for %ds, killing", STALL_TIMEOUT)
+                            proc.terminate()
+                            try:
+                                proc.wait(timeout=10)
+                            except subprocess.TimeoutExpired:
+                                proc.kill()
+                                proc.wait()
+                            self._update_run_status(
+                                db_url, run_id, "failed",
+                                json.dumps({"error": f"Evaluation stalled (no output for {STALL_TIMEOUT}s)"}),
+                            )
+                            return {}
+                        continue
                 chunk = proc.stderr.read1(4096) if hasattr(proc.stderr, 'read1') else proc.stderr.read(4096)
                 if not chunk:
                     break
+                last_output_time = time.time()
                 text = chunk.decode(errors="replace")
                 stderr_chunks.append(text)
                 sys.stderr.write(text)
@@ -89,6 +117,14 @@ class EvalEngine:
 
                 current_line += text
                 if '\r' in current_line or '\n' in current_line:
+                    # Detect current benchmark from [benchmark 1/3] task_name stage
+                    bm = benchmark_re.search(current_line)
+                    if bm:
+                        benchmark_idx = bm.group(1)
+                        benchmark_total = bm.group(2)
+                        current_benchmark = bm.group(3)
+                        current_stage = bm.group(4) or ""
+
                     m = progress_re.search(current_line)
                     if m:
                         progress = f"{m.group(1)}/{m.group(2)}"
@@ -96,7 +132,22 @@ class EvalEngine:
                         if progress != last_progress and now - last_progress_update >= 2:
                             last_progress = progress
                             last_progress_update = now
-                            self._update_progress(db_url, run_id, progress)
+                            if current_benchmark:
+                                display = f"{current_benchmark}: {progress}"
+                                if benchmark_total and benchmark_total != "1":
+                                    display = f"({benchmark_idx}/{benchmark_total}) {display}"
+                            else:
+                                display = progress
+                            self._update_progress(db_url, run_id, display)
+                    elif bm and current_stage:
+                        # Stage change without numeric progress
+                        display = f"{current_benchmark} {current_stage}"
+                        if benchmark_total and benchmark_total != "1":
+                            display = f"({benchmark_idx}/{benchmark_total}) {display}"
+                        now = time.time()
+                        if now - last_progress_update >= 2:
+                            last_progress_update = now
+                            self._update_progress(db_url, run_id, display)
                     current_line = current_line.split('\r')[-1].split('\n')[-1]
 
             if log_file:

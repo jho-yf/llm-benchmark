@@ -1,0 +1,15 @@
+{
+  "id": "longbench-0shot",
+  "name": "LongBench (0-shot)",
+  "category": "long_context",
+  "config": {
+    "tasks": ["longbench"],
+    "num_fewshot": {"longbench": 0},
+    "limit": null,
+    "batch_size": 1,
+    "generation_kwargs": {"max_gen_toks": 128}
+  },
+  "metrics": {"score": "score"},
+  "description": "长文本理解能力，6个子任务，4750题（生成式）",
+  "detail": "LongBench 是首个全面的长文本理解双语基准，包含 6 个主要任务类型（单文档QA、多文档QA、摘要、少样本学习、合成任务、代码完成），涵盖中英文共 4750 条测试数据，上下文长度从 1K 到 32K tokens。使用生成式评估，兼容 Chat API。"
+}

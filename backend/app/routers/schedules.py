@@ -43,6 +43,7 @@ def _job_to_response(job: ScheduledJob) -> ScheduleResponse:
         llm_api_key=_mask_key(job.llm_api_key),
         llm_auth_type=job.llm_auth_type,
         llm_model_id=job.llm_model_id,
+        llm_stream=job.llm_stream,
         llm_params=json.loads(job.llm_params) if job.llm_params else None,
         benchmark_name=job.benchmark_name,
         benchmark_category=job.benchmark_category,
@@ -68,6 +69,7 @@ async def create_schedule(body: ScheduleCreate, db: AsyncSession = Depends(get_d
         llm_api_key=body.llm.api_key,
         llm_auth_type=body.llm.auth_type,
         llm_model_id=body.llm.model_id,
+        llm_stream=body.llm.stream,
         llm_params=json.dumps(body.llm.params) if body.llm.params else None,
         benchmark_name=body.benchmark.name,
         benchmark_category=body.benchmark.category,
@@ -105,6 +107,7 @@ async def update_schedule(
             job.llm_api_key = new_key
         job.llm_auth_type = body.llm.auth_type
         job.llm_model_id = body.llm.model_id
+        job.llm_stream = body.llm.stream
         job.llm_params = json.dumps(body.llm.params) if body.llm.params else None
     if body.benchmark is not None:
         job.benchmark_name = body.benchmark.name
@@ -161,6 +164,7 @@ async def trigger_schedule(job_id: int, db: AsyncSession = Depends(get_db)):
         "api_key": job.llm_api_key,
         "auth_type": job.llm_auth_type,
         "model_id": job.llm_model_id,
+        "stream": job.llm_stream,
         "params": llm_params,
     })
 

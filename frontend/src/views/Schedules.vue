@@ -3,13 +3,20 @@
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-xl font-bold text-gray-800">LLM Benchmark</h1>
-      <button @click="showForm = true" class="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+      <button @click="showForm = true; formReadonly = false; editingSchedule = null" class="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
         + 新建定时任务
       </button>
     </div>
 
     <!-- Schedule Table -->
     <div class="mb-8">
+      <div class="flex items-center gap-3 mb-3">
+        <h2 class="text-base font-semibold text-gray-700">任务列表</h2>
+        <select v-model="filterScheduleModel" class="ml-auto border border-gray-300 rounded px-2 py-1 text-sm">
+          <option value="">全部模型</option>
+          <option v-for="m in scheduleModels" :key="m" :value="m">{{ m }}</option>
+        </select>
+      </div>
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b text-left text-gray-500">
@@ -22,8 +29,18 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="s in schedules" :key="s.id" class="border-b hover:bg-gray-50">
-            <td class="py-2 px-3">{{ s.name }}</td>
+          <tr v-for="s in filteredSchedules" :key="s.id"
+            class="border-b hover:bg-gray-50 cursor-pointer"
+            :class="filterScheduleId === s.id ? 'bg-blue-50' : ''"
+            @click="selectSchedule(s)">
+            <td class="py-2 px-3">
+              <div class="flex items-center gap-1.5">
+                <button @click.stop="handleDuplicate(s)" title="复制" class="text-gray-300 hover:text-purple-600 shrink-0">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                </button>
+                <span>{{ s.name }}</span>
+              </div>
+            </td>
             <td class="py-2 px-3">{{ s.llm_model_id }}</td>
             <td class="py-2 px-3">{{ s.benchmark_name }}</td>
             <td class="py-2 px-3 font-mono text-xs relative group">
@@ -43,17 +60,13 @@
             <td class="py-2 px-3 space-x-1">
               <button @click="handleTrigger(s)" :disabled="isScheduleRunning(s)"
                 class="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-40 disabled:cursor-not-allowed">触发</button>
-              <button @click="configSchedule = s"
-                class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 hover:bg-gray-200">配置</button>
-              <button @click="handleDuplicate(s)"
-                class="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 hover:bg-purple-200">复制</button>
-              <button @click="editingSchedule = s; showForm = true" :disabled="isScheduleRunning(s)"
-                class="text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200 disabled:opacity-40 disabled:cursor-not-allowed">编辑</button>
+              <button @click="openScheduleForm(s)"
+                class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 hover:bg-gray-200">{{ isScheduleRunning(s) ? '查看' : '编辑' }}</button>
               <button @click="handleDelete(s)" :disabled="isScheduleRunning(s)"
                 class="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-40 disabled:cursor-not-allowed">删除</button>
             </td>
           </tr>
-          <tr v-if="!schedules.length">
+          <tr v-if="!filteredSchedules.length">
             <td colspan="6" class="py-8 text-center text-gray-400">暂无定时任务</td>
           </tr>
         </tbody>
@@ -64,6 +77,10 @@
     <div>
       <div class="flex items-center gap-3 mb-3">
         <h2 class="text-base font-semibold text-gray-700">运行记录</h2>
+        <span v-if="selectedScheduleName" class="text-sm text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+          {{ selectedScheduleName }}
+          <button @click="clearScheduleFilter" class="ml-1 text-blue-400 hover:text-blue-600">&times;</button>
+        </span>
         <button @click="refresh" :disabled="refreshing" class="text-gray-400 hover:text-gray-600 disabled:text-gray-300" title="刷新">
           <svg class="w-4 h-4" :class="refreshing ? 'animate-spin' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M4.93 9a8 8 0 0113.14 0M19.07 15a8 8 0 01-13.14 0"/></svg>
         </button>
@@ -72,10 +89,6 @@
           自动刷新
         </label>
         <div class="ml-auto flex items-center gap-3">
-          <select v-model="filterScheduleId" @change="refresh" class="border border-gray-300 rounded px-2 py-1 text-sm">
-            <option value="">全部任务</option>
-            <option v-for="s in schedules" :key="s.id" :value="s.id">{{ s.name }}</option>
-          </select>
           <select v-model="filterStatus" @change="refresh" class="border border-gray-300 rounded px-2 py-1 text-sm">
             <option value="">全部状态</option>
             <option value="running">运行中</option>
@@ -122,7 +135,14 @@
             <td class="py-2 px-3 text-xs">{{ duration(r) }}</td>
             <td class="py-2 px-3">
               <StatusBadge :status="r.status" />
-              <span v-if="r.status === 'running' && r.progress" class="ml-1 text-xs text-blue-600 font-mono">{{ r.progress }}</span>
+              <div v-if="r.status === 'running' && r.progress" class="mt-1">
+                <div class="flex items-center gap-1.5">
+                  <div class="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full bg-blue-500 rounded-full transition-all duration-300" :style="{ width: calcProgressPct(r.progress) + '%' }"></div>
+                  </div>
+                  <span class="text-xs text-blue-600 font-mono whitespace-nowrap">{{ formatProgress(r.progress) }}</span>
+                </div>
+              </div>
             </td>
             <td class="py-2 px-3 text-xs font-mono truncate max-w-[200px]" :title="formatResultFull(r.result)">
               <span v-if="r.status === 'failed'" class="cursor-pointer text-red-600 underline" @click="showError(r)">{{ formatError(r.result) }}</span>
@@ -145,67 +165,11 @@
       </table>
     </div>
 
-    <!-- Config Modal -->
-    <div v-if="configSchedule" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="configSchedule = null">
-      <div class="bg-white rounded-lg shadow-xl w-[700px] max-h-[85vh] overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b">
-          <h2 class="text-lg font-semibold text-gray-800">{{ configSchedule.name }} — 任务配置</h2>
-          <button @click="configSchedule = null" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
-        </div>
-        <div class="px-6 py-4 space-y-5 text-sm">
-          <!-- Basic -->
-          <div>
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">基本信息</h3>
-            <div class="grid grid-cols-2 gap-3">
-              <div><span class="text-gray-500">名称：</span>{{ configSchedule.name }}</div>
-              <div><span class="text-gray-500">Cron：</span><code class="bg-gray-100 px-1 rounded">{{ configSchedule.cron_expr }}</code></div>
-              <div><span class="text-gray-500">状态：</span>{{ configSchedule.enabled ? '启用' : '停用' }}</div>
-              <div><span class="text-gray-500">创建时间：</span>{{ formatDt(configSchedule.created_at) }}</div>
-            </div>
-          </div>
-          <!-- LLM -->
-          <div>
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">模型配置</h3>
-            <div class="grid grid-cols-2 gap-3">
-              <div><span class="text-gray-500">提供商：</span>{{ configSchedule.llm_provider }}</div>
-              <div><span class="text-gray-500">模型：</span>{{ configSchedule.llm_model_id }}</div>
-              <div class="col-span-2"><span class="text-gray-500">API 地址：</span>{{ configSchedule.llm_api_base }}</div>
-              <div><span class="text-gray-500">认证方式：</span>{{ configSchedule.llm_auth_type }}</div>
-              <div><span class="text-gray-500">密钥：</span>{{ configSchedule.llm_api_key ? '••••••••' : '未设置' }}</div>
-            </div>
-            <div v-if="configSchedule.llm_params" class="mt-2">
-              <span class="text-gray-500">参数：</span>
-              <pre class="mt-1 bg-gray-50 border rounded p-2 text-xs font-mono overflow-x-auto">{{ JSON.stringify(configSchedule.llm_params, null, 2) }}</pre>
-            </div>
-          </div>
-          <!-- Benchmark -->
-          <div>
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Benchmark 配置</h3>
-            <div class="grid grid-cols-2 gap-3">
-              <div><span class="text-gray-500">名称：</span>{{ configSchedule.benchmark_name }}</div>
-              <div><span class="text-gray-500">分类：</span>{{ configSchedule.benchmark_category }}</div>
-            </div>
-            <div class="mt-2">
-              <span class="text-gray-500">评测配置：</span>
-              <pre class="mt-1 bg-gray-50 border rounded p-2 text-xs font-mono overflow-x-auto">{{ JSON.stringify(configSchedule.benchmark_config, null, 2) }}</pre>
-            </div>
-            <div v-if="configSchedule.benchmark_metrics" class="mt-2">
-              <span class="text-gray-500">指标：</span>
-              <pre class="mt-1 bg-gray-50 border rounded p-2 text-xs font-mono overflow-x-auto">{{ JSON.stringify(configSchedule.benchmark_metrics, null, 2) }}</pre>
-            </div>
-            <div v-if="configSchedule.benchmark_params" class="mt-2">
-              <span class="text-gray-500">运行参数：</span>
-              <pre class="mt-1 bg-gray-50 border rounded p-2 text-xs font-mono overflow-x-auto">{{ JSON.stringify(configSchedule.benchmark_params, null, 2) }}</pre>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Form Modal -->
     <ScheduleForm
       v-if="showForm"
       :initial="editingSchedule"
+      :readonly="formReadonly"
       @save="handleSave"
       @cancel="closeForm"
     />
@@ -232,7 +196,7 @@
           <button @click="closeLog" class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
         </div>
         <div v-if="logProgressPct >= 0" class="h-1.5 bg-gray-800">
-          <div class="h-full bg-blue-500 transition-all duration-300" :style="{ width: logProgressPct + '%' }"></div>
+          <div class="h-full bg-blue-500 rounded-r transition-all duration-500" :style="{ width: logProgressPct + '%' }"></div>
         </div>
         <pre ref="logContainer" class="flex-1 overflow-y-auto p-5 text-sm text-green-300 whitespace-pre-wrap font-mono">{{ logLines.join('') || '等待日志...' }}</pre>
       </div>
@@ -253,24 +217,60 @@
             <div><span class="text-gray-500">开始时间：</span>{{ formatDt(reportRun.started_at) }}</div>
             <div><span class="text-gray-500">耗时：</span>{{ duration(reportRun) }}</div>
           </div>
-          <!-- Metrics Table -->
-          <table v-if="reportMetrics.length" class="w-full text-sm border-collapse">
-            <thead>
-              <tr class="border-b text-left text-gray-500">
-                <th class="py-2 px-3">Task</th>
-                <th class="py-2 px-3">Metric</th>
-                <th class="py-2 px-3 text-right">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(m, i) in reportMetrics" :key="i" class="border-b hover:bg-gray-50">
-                <td class="py-2 px-3 font-mono">{{ m.task }}</td>
-                <td class="py-2 px-3">{{ m.key }}</td>
-                <td class="py-2 px-3 text-right font-mono font-semibold" :class="m.key.includes('acc') || m.key.includes('score') ? 'text-green-600' : ''">{{ m.value }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div v-else class="text-center text-gray-400 py-8">无结果数据</div>
+          <!-- Token Usage -->
+          <div v-if="reportTokenUsage" class="bg-gray-50 border rounded p-3">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Token 消耗</h3>
+            <div class="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <div class="text-2xl font-bold text-blue-600 font-mono">{{ formatNumber(reportTokenUsage.prompt_tokens) }}</div>
+                <div class="text-xs text-gray-400">Prompt Tokens</div>
+              </div>
+              <div>
+                <div class="text-2xl font-bold text-green-600 font-mono">{{ formatNumber(reportTokenUsage.completion_tokens) }}</div>
+                <div class="text-xs text-gray-400">Completion Tokens</div>
+              </div>
+              <div>
+                <div class="text-2xl font-bold text-purple-600 font-mono">{{ formatNumber(reportTokenUsage.total_tokens) }}</div>
+                <div class="text-xs text-gray-400">Total Tokens</div>
+              </div>
+            </div>
+          </div>
+          <!-- Per-Task Details -->
+          <div v-for="detail in reportTaskDetails" :key="detail.name" class="border rounded">
+            <div class="flex items-center justify-between bg-gray-50 px-3 py-2 cursor-pointer" @click="detail._expanded = !detail._expanded">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold text-gray-700 font-mono">{{ detail.name }}</span>
+                <span v-if="detail.nShot != null" class="text-xs bg-blue-100 text-blue-600 px-1.5 rounded">{{ detail.nShot }}-shot</span>
+                <span v-if="detail.nSamples" class="text-xs text-gray-400">{{ detail.nSamples }} 样本</span>
+              </div>
+              <span class="text-gray-400 text-xs">{{ detail._expanded ? '收起' : '展开' }}</span>
+            </div>
+            <div v-if="detail._expanded" class="px-3 py-2 space-y-2 text-sm">
+              <!-- Metrics -->
+              <table v-if="detail.metrics.length" class="w-full">
+                <thead>
+                  <tr class="border-b text-left text-gray-500 text-xs">
+                    <th class="py-1 px-2">指标</th>
+                    <th class="py-1 px-2 text-right">值</th>
+                    <th class="py-1 px-2 w-[40%]">说明</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="m in detail.metrics" :key="m.key" class="border-b last:border-0">
+                    <td class="py-1 px-2 text-xs font-medium">{{ m.key }}</td>
+                    <td class="py-1 px-2 text-right font-mono font-semibold text-xs" :class="m.highlight ? 'text-green-600' : ''">{{ m.value }}</td>
+                    <td class="py-1 px-2 text-xs text-gray-400">{{ metricDesc(m.key) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <!-- Config -->
+              <div v-if="detail.config && Object.keys(detail.config).length">
+                <div class="text-xs text-gray-400 mb-1">配置</div>
+                <pre class="bg-gray-50 rounded p-2 text-xs font-mono overflow-x-auto max-h-40">{{ JSON.stringify(detail.config, null, 2) }}</pre>
+              </div>
+            </div>
+          </div>
+          <div v-if="!reportTaskDetails.length" class="text-center text-gray-400 py-8">无结果数据</div>
         </div>
       </div>
     </div>
@@ -292,7 +292,7 @@ const runs = ref([])
 const allRunningJobIds = ref(new Set())
 const showForm = ref(false)
 const editingSchedule = ref(null)
-const configSchedule = ref(null)
+const formReadonly = ref(false)
 const errorMessage = ref(null)
 const reportRun = ref(null)
 const selectedRunIds = ref(new Set())
@@ -304,8 +304,22 @@ const logProgressPct = ref(-1)
 const refreshing = ref(false)
 const filterScheduleId = ref('')
 const filterStatus = ref('')
+const filterScheduleModel = ref('')
 const autoRefresh = ref(true)
 let logEventSource = null
+
+const scheduleModels = computed(() => {
+  const models = new Set()
+  for (const s of schedules.value) {
+    if (s.llm_model_id) models.add(s.llm_model_id)
+  }
+  return [...models].sort()
+})
+
+const filteredSchedules = computed(() => {
+  if (!filterScheduleModel.value) return schedules.value
+  return schedules.value.filter(s => s.llm_model_id === filterScheduleModel.value)
+})
 let autoRefreshTimer = null
 
 const isAllSelected = computed(() => {
@@ -313,17 +327,72 @@ const isAllSelected = computed(() => {
   return selectable.length > 0 && selectable.every(r => selectedRunIds.value.has(r.id))
 })
 
-const reportMetrics = computed(() => {
+const reportTokenUsage = computed(() => {
+  if (!reportRun.value?.result) return null
+  const usage = reportRun.value.result.token_usage
+  if (!usage || (!usage.prompt_tokens && !usage.completion_tokens)) return null
+  return usage
+})
+
+const _metricDescs = {
+  exact_match: '精确匹配准确率，模型输出与标准答案完全一致的占比',
+  acc: '准确率，正确回答占总样本的百分比',
+  acc_norm: '长度归一化准确率，排除答案长度偏差后的准确率',
+  pass: '代码通过率',
+  'pass@1': '单次生成通过率，生成一次代码即通过测试的概率',
+  score: '综合得分',
+  qa_f1_score: 'QA F1 分数，基于词级别的精确率和召回率的调和平均',
+  bleu_acc: 'BLEU 准确率，基于 BLEU 分数阈值判断回答是否正确',
+  rouge1_acc: 'ROUGE-1 准确率，基于 unigram 重叠度判断回答正确性',
+  prompt_level_strict_acc: '严格指令遵循率，所有约束均满足的 prompt 占比',
+  prompt_level_loose_acc: '宽松指令遵循率，满足大部分约束的 prompt 占比',
+  inst_level_strict_acc: '严格指令级准确率，每条指令是否被严格遵循',
+  inst_level_loose_acc: '宽松指令级准确率，每条指令是否被宽松遵循',
+}
+
+function metricDesc(key) {
+  if (_metricDescs[key]) return _metricDescs[key]
+  if (key.includes('exact_match') || key.includes('em')) return '精确匹配准确率'
+  if (key.includes('acc') && key.includes('norm')) return '长度归一化准确率'
+  if (key.includes('acc')) return '准确率'
+  if (key.includes('pass')) return '代码通过率'
+  if (key.includes('f1')) return 'F1 分数，精确率与召回率的调和平均'
+  if (key.includes('bleu')) return 'BLEU 分数，衡量生成文本与参考文本的 n-gram 匹配度'
+  if (key.includes('rouge')) return 'ROUGE 分数，衡量生成文本与参考文本的重叠度'
+  return ''
+}
+
+const _keyMetrics = ['exact_match', 'acc', 'pass@1', 'score', 'prompt_level_strict_acc']
+
+const reportTaskDetails = computed(() => {
   if (!reportRun.value?.result) return []
-  const rows = []
-  const results = reportRun.value.result.results || reportRun.value.result
-  for (const [task, metrics] of Object.entries(results)) {
+  const result = reportRun.value.result
+  const results = result.results || {}
+  const configs = result.configs || result['n-samples'] ? result.configs || {} : {}
+  const nSamples = result['n-samples'] || {}
+  const nShot = result['n-shot'] || {}
+
+  const tasks = []
+  for (const [taskName, metrics] of Object.entries(results)) {
     if (typeof metrics !== 'object') continue
+    const taskMetrics = []
     for (const [k, v] of Object.entries(metrics)) {
-      if (typeof v === 'number') rows.push({ task, key: k, value: v.toFixed(4) })
+      if (typeof v === 'number') {
+        const highlight = _keyMetrics.some(m => k.includes(m))
+        taskMetrics.push({ key: k, value: v.toFixed(4), highlight })
+      }
     }
+    if (!taskMetrics.length) continue
+    tasks.push({
+      name: taskName,
+      metrics: taskMetrics,
+      config: configs[taskName] || null,
+      nSamples: nSamples[taskName]?.original || nSamples[taskName]?.effective || null,
+      nShot: nShot[taskName] ?? null,
+      _expanded: tasks.length < 5,
+    })
   }
-  return rows
+  return tasks
 })
 
 watch(logLines, () => {
@@ -335,6 +404,26 @@ watch(logLines, () => {
 function isScheduleRunning(s) {
   return allRunningJobIds.value.has(s.id)
 }
+
+function selectSchedule(s) {
+  if (filterScheduleId.value === s.id) {
+    filterScheduleId.value = ''
+  } else {
+    filterScheduleId.value = s.id
+  }
+  refresh()
+}
+
+function clearScheduleFilter() {
+  filterScheduleId.value = ''
+  refresh()
+}
+
+const selectedScheduleName = computed(() => {
+  if (!filterScheduleId.value) return ''
+  const s = schedules.value.find(x => x.id === filterScheduleId.value)
+  return s ? s.name : ''
+})
 
 async function refresh() {
   refreshing.value = true
@@ -371,6 +460,13 @@ onUnmounted(() => {
 function closeForm() {
   showForm.value = false
   editingSchedule.value = null
+  formReadonly.value = false
+}
+
+function openScheduleForm(s) {
+  editingSchedule.value = s
+  formReadonly.value = isScheduleRunning(s)
+  showForm.value = true
 }
 
 async function handleSave(payload) {
@@ -397,6 +493,7 @@ function handleDuplicate(s) {
   editingSchedule.value = {
     ...s,
     name: s.name + ' (副本)',
+    llm_api_key: '',
     id: null,
   }
   showForm.value = true
@@ -446,15 +543,38 @@ function toggleLog(runId) {
   logLines.value = []
   logProgress.value = ''
   logProgressPct.value = -1
-  const progressRe = /(\d+)\/(\d+)/
+  const numRe = /(\d+)\/(\d+)/
+  const bmRe = /\[benchmark (\d+)\/(\d+)\]\s+(\S+)(?:\s+(\S+))?/
   logEventSource = new EventSource(`/api/runs/${runId}/log`)
   logEventSource.onmessage = (e) => {
-    logLines.value.push(e.data + '\n')
+    const line = e.data
+    logLines.value.push(line + '\n')
     if (logLines.value.length > 500) logLines.value.splice(0, 100)
-    const m = progressRe.exec(e.data)
-    if (m) {
-      logProgress.value = `${m[1]}/${m[2]}`
-      logProgressPct.value = Math.round((parseInt(m[1]) / parseInt(m[2])) * 100)
+    const bm = bmRe.exec(line)
+    if (bm) {
+      const bmIdx = bm[1]
+      const bmTotal = bm[2]
+      const name = _taskNames[bm[3]] || bm[3]
+      const stage = bm[4] || ''
+      const stageLabel = _stageNames[stage] || ''
+      const nm = numRe.exec(line)
+      if (nm) {
+        logProgress.value = bmTotal !== '1' ? `${name} (${bmIdx}/${bmTotal}) 推理 ${nm[1]}/${nm[2]}` : `${name} 推理 ${nm[1]}/${nm[2]}`
+        const taskPct = parseInt(nm[1]) / parseInt(nm[2])
+        const perBm = 100 / parseInt(bmTotal)
+        logProgressPct.value = Math.min(100, Math.round(((parseInt(bmIdx) - 1) + taskPct) * perBm))
+      } else if (stageLabel) {
+        logProgress.value = bmTotal !== '1' ? `${name} (${bmIdx}/${bmTotal}) ${stageLabel}` : `${name} ${stageLabel}`
+        const taskPct = stage === 'done' ? 1 : (stage === 'loading' ? 0.05 : 0.1)
+        const perBm = 100 / parseInt(bmTotal)
+        logProgressPct.value = Math.min(100, Math.round(((parseInt(bmIdx) - 1) + taskPct) * perBm))
+      }
+    } else {
+      const nm = numRe.exec(line)
+      if (nm) {
+        logProgress.value = `${nm[1]}/${nm[2]}`
+        logProgressPct.value = Math.round((parseInt(nm[1]) / parseInt(nm[2])) * 100)
+      }
     }
   }
   logEventSource.onerror = () => {
@@ -483,10 +603,15 @@ function formatDt(dt) {
 
 function duration(r) {
   if (!r.started_at) return '-'
+  const start = new Date(r.started_at)
   const end = r.finished_at ? new Date(r.finished_at) : new Date()
-  const ms = end - new Date(r.started_at)
+  let ms = end - start
+  if (ms < 0) ms = 0
   if (ms < 60000) return `${Math.round(ms / 1000)}s`
-  return `${Math.round(ms / 60000)}min`
+  if (ms < 3600000) return `${Math.round(ms / 60000)}min`
+  const h = Math.floor(ms / 3600000)
+  const m = Math.round((ms % 3600000) / 60000)
+  return `${h}h${m > 0 ? m + 'min' : ''}`
 }
 
 function formatResult(result) {
@@ -520,6 +645,93 @@ function formatError(result) {
   return result.error || JSON.stringify(result).slice(0, 80)
 }
 
+const _taskNames = {
+  gsm8k: 'GSM8K',
+  humaneval: 'HumanEval',
+  mmlu_generative: 'MMLU',
+  ceval_gen: 'C-Eval',
+  longbench: 'LongBench',
+  longbench_2wikimqa: 'LongBench-2WikiMQA',
+  longbench_dureader: 'LongBench-DuReader',
+  longbench_gov_report: 'LongBench-GovReport',
+  longbench_hotpotqa: 'LongBench-HotpotQA',
+  longbench_lcc: 'LongBench-LCC',
+  longbench_multi_news: 'LongBench-MultiNews',
+  longbench_multifieldqa_en: 'LongBench-MFQA-en',
+  longbench_multifieldqa_zh: 'LongBench-MFQA-zh',
+  longbench_musique: 'LongBench-MuSiQue',
+  longbench_narrativeqa: 'LongBench-NarrativeQA',
+  longbench_passage_count: 'LongBench-PassageCount',
+  longbench_passage_retrieval_en: 'LongBench-PR-en',
+  longbench_passage_retrieval_zh: 'LongBench-PR-zh',
+  longbench_qasper: 'LongBench-Qasper',
+  longbench_qmsum: 'LongBench-QMSum',
+  longbench_repobench: 'LongBench-RepoBench',
+  longbench_samsum: 'LongBench-SamSum',
+  longbench_trec: 'LongBench-TREC',
+  longbench_triviaqa: 'LongBench-TriviaQA',
+  longbench_vcsum: 'LongBench-VCSum',
+}
+
+const _stageNames = { loading: '加载中', running: '推理中', done: '计算指标', failed: '失败' }
+
+function formatProgress(progress) {
+  if (!progress) return ''
+  const colonIdx = progress.indexOf(':')
+  if (colonIdx !== -1) {
+    const prefix = progress.slice(0, colonIdx).trim()
+    const num = progress.slice(colonIdx + 1).trim()
+    const idxMatch = prefix.match(/^\((\d+)\/(\d+)\)\s*(.*)/)
+    if (idxMatch) {
+      const name = _taskNames[idxMatch[3]] || idxMatch[3]
+      return `${name} (${idxMatch[1]}/${idxMatch[2]}) 推理 ${num}`
+    }
+    const totalMatch = prefix.match(/^\((\d+)\)\s*(.*)/)
+    if (totalMatch) {
+      const name = _taskNames[totalMatch[2]] || totalMatch[2]
+      return `${name} (${totalMatch[1]}) 推理 ${num}`
+    }
+    const name = _taskNames[prefix] || prefix
+    return `${name} 推理 ${num}`
+  }
+  // Stage format: "(1/3) gsm8k loading" or "(3) gsm8k loading" or "gsm8k running"
+  const stageMatch = progress.match(/^(?:\((\d+)\/(\d+)\)\s*|\((\d+)\)\s*)?(\S+)\s+(\S+)$/)
+  if (stageMatch) {
+    const idx = stageMatch[1] || stageMatch[3]
+    const total = stageMatch[2] || stageMatch[3]
+    const name = _taskNames[stageMatch[4]] || stageMatch[4]
+    const stage = _stageNames[stageMatch[5]] || stageMatch[5]
+    return idx && total ? `${name} (${idx}/${total}) ${stage}` : `${name} ${stage}`
+  }
+  return progress
+}
+
+function calcProgressPct(progress) {
+  if (!progress) return 0
+  // Parse benchmark index/total: "(1/3)" or "(3)"
+  const idxMatch = progress.match(/\((\d+)\/(\d+)\)/)
+  const totalOnlyMatch = progress.match(/\((\d+)\)/)
+  const bmIdx = idxMatch ? parseInt(idxMatch[1]) : 1
+  const bmTotal = idxMatch ? parseInt(idxMatch[2]) : (totalOnlyMatch ? parseInt(totalOnlyMatch[1]) : 1)
+  // Parse numeric task progress
+  const numMatch = progress.match(/(\d+)\/(\d+)/)
+  let taskPct = 0
+  if (numMatch) {
+    taskPct = parseInt(numMatch[1]) / parseInt(numMatch[2])
+  } else {
+    const stageM = progress.match(/\S+\s+(\S+)$/)
+    if (stageM) {
+      const stage = stageM[1]
+      if (stage === 'loading') taskPct = 0.05
+      else if (stage === 'running') taskPct = 0.1
+      else if (stage === 'done') taskPct = 1
+    }
+  }
+  if (bmTotal <= 1) return Math.round(taskPct * 100)
+  const perBm = 100 / bmTotal
+  return Math.min(100, Math.round(((bmIdx - 1) + taskPct) * perBm))
+}
+
 function showError(r) {
   const msg = r.result?.error || JSON.stringify(r.result, null, 2) || '无详情'
   errorMessage.value = msg
@@ -527,6 +739,11 @@ function showError(r) {
 
 function showReport(r) {
   reportRun.value = r
+}
+
+function formatNumber(n) {
+  if (n == null) return '-'
+  return n.toLocaleString()
 }
 
 const _nextRunsCache = new Map()

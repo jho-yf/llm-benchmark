@@ -1,28 +1,31 @@
-task: arc_challenge_gen
-dataset_path: allenai/ai2_arc
-dataset_name: ARC-Challenge
+task: ceval_gen_electrical_engineer
+dataset_path: ceval/ceval-exam
+dataset_name: electrical_engineer
 output_type: generate_until
 test_split: test
-fewshot_split: train
+validation_split: val
+fewshot_split: dev
 fewshot_config:
   sampler: first_n
-doc_to_text: "Question: {{question}}\n{% set letters = ['A','B','C','D','E','F','G','H'] %}{% for i in range(choices.text | length) %}{{ letters[i] }}. {{ choices.text[i] }}\n{% endfor %}Answer:"
-doc_to_target: "{{answerKey}}"
+doc_to_text: "{{question.strip()}}\nA. {{A}}\nB. {{B}}\nC. {{C}}\nD. {{D}}\n答案："
+doc_to_target: "{{answer}}"
 generation_kwargs:
   until:
     - "</s>"
     - "\n"
+  do_sample: false
+  temperature: 0.0
 metric_list:
   - metric: exact_match
     aggregation: mean
     higher_is_better: true
-    ignore_punctuation: true
     ignore_case: true
+    ignore_punctuation: true
 filter_list:
   - name: get_response
     filter:
       - function: "regex"
-        regex_pattern: "^(.*?)(?=\\n|$)"
+        regex_pattern: "^(.*?)(?=\n|$)"
       - function: remove_whitespace
       - function: take_first
 metadata:

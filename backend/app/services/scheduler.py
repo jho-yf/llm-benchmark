@@ -35,6 +35,7 @@ def build_eval_func(job: ScheduledJob) -> Callable:
             "api_key": job.llm_api_key,
             "auth_type": job.llm_auth_type,
             "model_id": job.llm_model_id,
+            "stream": job.llm_stream,
             "params": llm_params,
         })
 

@@ -1,0 +1,15 @@
+{
+  "id": "ceval-5shot",
+  "name": "C-Eval (5-shot)",
+  "category": "knowledge",
+  "config": {
+    "tasks": ["ceval_gen"],
+    "num_fewshot": {"ceval_gen": 5},
+    "limit": null,
+    "batch_size": 1,
+    "generation_kwargs": {"max_gen_toks": 32}
+  },
+  "metrics": {"accuracy": "exact_match"},
+  "description": "中文综合能力评测，52个学科，13948题（生成式，兼容Chat API）",
+  "detail": "C-Eval 是首个大规模中文多学科评测基准，涵盖 52 个学科领域的 13948 道多项选择题，从初中到专业级别。包含理工、人文、社科等方向，是衡量中文大模型知识和推理能力的核心基准。使用生成式评估，模型直接输出选项字母，兼容 Chat API。"
+}

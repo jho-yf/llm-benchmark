@@ -24,6 +24,7 @@ class ScheduledJob(AsyncAttrs, Base):
     llm_api_key: Mapped[str] = mapped_column(Text, nullable=True)
     llm_auth_type: Mapped[str] = mapped_column(String(20), nullable=False, default="bearer")
     llm_model_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    llm_stream: Mapped[bool] = mapped_column(Boolean, default=True)
     llm_params: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Benchmark config

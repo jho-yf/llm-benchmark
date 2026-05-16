@@ -4,11 +4,12 @@ from pydantic import BaseModel, Field
 
 
 class LLMConfig(BaseModel):
-    provider: str = Field(..., max_length=50)
+    provider: str = Field(default="custom", max_length=50)
     api_base: str = Field(..., max_length=500)
     api_key: str | None = None
     auth_type: str = Field(default="bearer", max_length=20)
     model_id: str = Field(..., max_length=200)
+    stream: bool = Field(default=True)
     params: dict | None = None
 
 
@@ -48,6 +49,7 @@ class ScheduleResponse(BaseModel):
     llm_api_key: str | None
     llm_auth_type: str
     llm_model_id: str
+    llm_stream: bool = True
     llm_params: dict | None
     benchmark_name: str
     benchmark_category: str
@@ -59,7 +61,7 @@ class ScheduleResponse(BaseModel):
 
 
 class ScheduleTestConnection(BaseModel):
-    provider: str = Field(..., max_length=50)
+    provider: str = Field(default="custom", max_length=50)
     api_base: str = Field(..., max_length=500)
     api_key: str | None = None
     auth_type: str = Field(default="bearer", max_length=20)
