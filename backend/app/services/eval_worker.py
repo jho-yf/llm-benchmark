@@ -495,6 +495,7 @@ def main():
     # Run each task separately so we can show per-benchmark progress
     merged = {"results": {}, "configs": {}, "n-samples": {}, "n-shot": {}, "versions": {}}
     total = len(task_list)
+    task_errors = {}
 
     for idx, task_name in enumerate(task_list):
         sys.stderr.write(f"[benchmark {idx + 1}/{total}] {task_name} loading\n")
@@ -518,10 +519,19 @@ def main():
             sys.stderr.write(f"[partial_result] {json.dumps(_sanitize(partial))}\n")
             sys.stderr.flush()
         except Exception as e:
+            task_errors[task_name] = str(e)
             sys.stderr.write(f"[benchmark {idx + 1}/{total}] {task_name} failed: {e}\n")
             sys.stderr.flush()
 
     output = {**merged, "token_usage": dict(_token_usage)}
+    if task_errors:
+        error_msg = "; ".join(f"{t}: {e}" for t, e in task_errors.items())
+        if not merged["results"]:
+            # All tasks failed — mark as error so eval_engine sets status=failed
+            output["error"] = error_msg
+        else:
+            # Partial success — include errors in output but don't fail the run
+            output["task_errors"] = task_errors
     sys.stdout.write(json.dumps(_sanitize(output)))
 
 

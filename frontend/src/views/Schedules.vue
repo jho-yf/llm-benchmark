@@ -307,6 +307,13 @@
               </div>
             </div>
           </div>
+          <!-- Task errors (partial failure) -->
+          <div v-if="reportRun.result?.task_errors" class="border border-orange-200 rounded p-3 bg-orange-50">
+            <h3 class="text-xs font-semibold text-orange-600 uppercase tracking-wide mb-2">部分任务失败</h3>
+            <div v-for="(err, task) in reportRun.result.task_errors" :key="task" class="text-xs text-orange-700 mb-1">
+              <span class="font-mono font-semibold">{{ task }}</span>：{{ err }}
+            </div>
+          </div>
           <div v-if="!reportTaskDetails.length" class="text-center text-gray-400 py-8">无结果数据</div>
         </div>
       </div>
