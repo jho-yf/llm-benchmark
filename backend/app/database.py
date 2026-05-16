@@ -27,6 +27,7 @@ async def init_db():
             ("test_run", "benchmark_name", "VARCHAR(200)", None),
             ("test_run", "progress", "VARCHAR(50)", None),
             ("scheduled_job", "llm_stream", "BOOLEAN", True),
+            ("scheduled_job", "expires_at", "DATETIME", None),
         ]:
             try:
                 sql = f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"

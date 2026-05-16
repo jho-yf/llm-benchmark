@@ -33,3 +33,4 @@ class ScheduledJob(AsyncAttrs, Base):
     benchmark_config: Mapped[str] = mapped_column(Text, nullable=False)
     benchmark_metrics: Mapped[str | None] = mapped_column(Text, nullable=True)
     benchmark_params: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

@@ -24,6 +24,7 @@
             <th class="py-2 px-3">模型</th>
             <th class="py-2 px-3">Benchmark</th>
             <th class="py-2 px-3">Cron</th>
+            <th class="py-2 px-3">到期时间</th>
             <th class="py-2 px-3">状态</th>
             <th class="py-2 px-3">操作</th>
           </tr>
@@ -51,6 +52,12 @@
                   <div v-for="d in getNextRuns(s.cron_expr)" :key="d">{{ d }}</div>
                 </div>
               </td>
+            <td class="py-2 px-3 text-xs text-gray-500">
+              <span v-if="s.expires_at" :class="isExpired(s) ? 'text-red-500' : ''">
+                {{ formatDt(s.expires_at) }}
+              </span>
+              <span v-else class="text-gray-300">-</span>
+            </td>
             <td class="py-2 px-3">
               <button @click="handleToggle(s)" class="text-xs px-2 py-0.5 rounded"
                 :class="s.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'">
@@ -67,7 +74,7 @@
             </td>
           </tr>
           <tr v-if="!filteredSchedules.length">
-            <td colspan="6" class="py-8 text-center text-gray-400">暂无定时任务</td>
+            <td colspan="7" class="py-8 text-center text-gray-400">暂无定时任务</td>
           </tr>
         </tbody>
       </table>
@@ -439,6 +446,11 @@ function isScheduleRunning(s) {
   return allRunningJobIds.value.has(s.id)
 }
 
+function isExpired(s) {
+  if (!s.expires_at) return false
+  return new Date(s.expires_at) <= new Date()
+}
+
 function selectSchedule(s) {
   if (filterScheduleId.value === s.id) {
     filterScheduleId.value = ''
@@ -596,6 +608,7 @@ function toggleLog(runId) {
   }
   closeLog()
   expandedLogId.value = runId
+  document.body.style.overflow = 'hidden'
   logLines.value = []
   logProgress.value = ''
   logProgressPct.value = -1
@@ -694,6 +707,7 @@ function closeLog() {
   logProgressPct.value = -1
   logStage.value = ''
   logBenchmarks.value = []
+  document.body.style.overflow = ''
 }
 
 const _stageOrder = ['loading', 'running', 'done']

@@ -26,6 +26,7 @@ class ScheduleCreate(BaseModel):
     cron_expr: str = Field(..., max_length=100)
     llm: LLMConfig
     benchmark: BenchmarkConfig
+    expires_at: datetime | None = None
 
 
 class ScheduleUpdate(BaseModel):
@@ -34,6 +35,7 @@ class ScheduleUpdate(BaseModel):
     enabled: bool | None = None
     llm: LLMConfig | None = None
     benchmark: BenchmarkConfig | None = None
+    expires_at: datetime | None = None
 
 
 class ScheduleResponse(BaseModel):
@@ -56,6 +58,7 @@ class ScheduleResponse(BaseModel):
     benchmark_config: dict
     benchmark_metrics: dict | None
     benchmark_params: dict | None
+    expires_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 

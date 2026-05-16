@@ -50,6 +50,7 @@ def _job_to_response(job: ScheduledJob) -> ScheduleResponse:
         benchmark_config=json.loads(job.benchmark_config),
         benchmark_metrics=json.loads(job.benchmark_metrics) if job.benchmark_metrics else None,
         benchmark_params=json.loads(job.benchmark_params) if job.benchmark_params else None,
+        expires_at=job.expires_at,
     )
 
 
@@ -76,6 +77,7 @@ async def create_schedule(body: ScheduleCreate, db: AsyncSession = Depends(get_d
         benchmark_config=json.dumps(body.benchmark.config),
         benchmark_metrics=json.dumps(body.benchmark.metrics) if body.benchmark.metrics else None,
         benchmark_params=json.dumps(body.benchmark.params) if body.benchmark.params else None,
+        expires_at=body.expires_at,
     )
     db.add(job)
     await db.commit()
@@ -115,6 +117,8 @@ async def update_schedule(
         job.benchmark_config = json.dumps(body.benchmark.config)
         job.benchmark_metrics = json.dumps(body.benchmark.metrics) if body.benchmark.metrics else None
         job.benchmark_params = json.dumps(body.benchmark.params) if body.benchmark.params else None
+    # Always update expires_at (None clears it)
+    job.expires_at = body.expires_at
 
     await db.commit()
     await db.refresh(job)

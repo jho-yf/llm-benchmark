@@ -9,19 +9,25 @@
           <label class="label">任务名称</label>
           <input v-model="form.name" :disabled="readonly" class="input" :class="hasError('任务名称') ? 'ring-1 ring-red-400' : ''" placeholder="如：每周 MMLU 评测" />
         </div>
-        <div>
-          <label class="label">Cron 表达式</label>
-          <div class="flex gap-2">
-            <select @change="readonly ? null : (form.cron_expr = $event.target.value); $event.target.value = ''" :disabled="readonly" class="cron-preset">
-              <option value="">-- 预设 --</option>
-              <option value="0 2 * * *">每天 2:00</option>
-              <option value="0 2 * * 0">周日 2:00</option>
-              <option value="0 2 * * 1">周一 2:00</option>
-              <option value="0 2 1 * *">每月1号</option>
-              <option value="0 */6 * * *">每6小时</option>
-              <option value="0 */12 * * *">每12小时</option>
-            </select>
-            <input v-model="form.cron_expr" :disabled="readonly" class="input flex-1" :class="hasError('Cron 表达式') ? 'ring-1 ring-red-400' : ''" placeholder="0 2 * * 0" />
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="label">Cron 表达式</label>
+            <div class="flex gap-2">
+              <select @change="readonly ? null : (form.cron_expr = $event.target.value); $event.target.value = ''" :disabled="readonly" class="cron-preset">
+                <option value="">-- 预设 --</option>
+                <option value="0 2 * * *">每天 2:00</option>
+                <option value="0 2 * * 0">周日 2:00</option>
+                <option value="0 2 * * 1">周一 2:00</option>
+                <option value="0 2 1 * *">每月1号</option>
+                <option value="0 */6 * * *">每6小时</option>
+                <option value="0 */12 * * *">每12小时</option>
+              </select>
+              <input v-model="form.cron_expr" :disabled="readonly" class="input flex-1" :class="hasError('Cron 表达式') ? 'ring-1 ring-red-400' : ''" placeholder="0 2 * * 0" />
+            </div>
+          </div>
+          <div>
+            <label class="label">到期停用时间 <span class="hint" data-hint="到达此时间后自动停用任务，不填则永不停用"><svg viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 1.5a5.5 5.5 0 110 11 5.5 5.5 0 010-11zM8 5a.75.75 0 100 1.5A.75.75 0 008 5zm-.75 3a.75.75 0 011.5 0v2.5a.75.75 0 01-1.5 0V8z"/></svg></span></label>
+            <input v-model="expiresAt" type="datetime-local" :disabled="readonly" class="input" />
           </div>
         </div>
       </div>
@@ -284,6 +290,16 @@ const numFewshot = ref(_initFewshotVal ?? 0)
 const maxTokens = ref(props.initial?.benchmark_config?.generation_kwargs?.max_gen_toks ?? 512)
 const sampleLimit = ref(props.initial?.benchmark_config?.limit ?? null)
 
+function _toLocalDatetime(isoStr) {
+  if (!isoStr) return ''
+  // datetime-local input needs "YYYY-MM-DDTHH:mm" in local time
+  const d = new Date(isoStr)
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const expiresAt = ref(_toLocalDatetime(props.initial?.expires_at ?? null))
+
 function validate() {
   const errors = []
   if (!form.name.trim()) errors.push('任务名称')
@@ -460,6 +476,7 @@ function handleSave() {
     cron_expr: form.cron_expr,
     llm,
     benchmark: { ...form.benchmark },
+    expires_at: expiresAt.value ? new Date(expiresAt.value).toISOString() : null,
   }
   emit('save', payload)
 }

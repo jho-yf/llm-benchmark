@@ -26,6 +26,27 @@ def build_eval_func(job: ScheduledJob) -> Callable:
     """Build the callable that runs when a scheduled job fires."""
 
     def func():
+        from datetime import datetime, timezone
+        # Check if job has expired; if so, disable and remove it
+        if job.expires_at is not None:
+            expires = job.expires_at
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) >= expires:
+                logger.info("Job %d has expired (%s), disabling", job.id, job.expires_at)
+                from sqlalchemy import create_engine, text
+                from sqlalchemy.orm import Session
+                sync_url = settings.database_url.replace("+aiosqlite", "")
+                eng = create_engine(sync_url)
+                with Session(eng) as session:
+                    session.execute(
+                        text("UPDATE scheduled_job SET enabled=0 WHERE id=:id"),
+                        {"id": job.id},
+                    )
+                    session.commit()
+                remove_job(job.id)
+                return
+
         llm_params = json.loads(job.llm_params) if job.llm_params else {}
         bench_config = json.loads(job.benchmark_config) if isinstance(job.benchmark_config, str) else job.benchmark_config
 
