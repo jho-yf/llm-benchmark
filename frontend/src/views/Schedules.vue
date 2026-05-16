@@ -157,7 +157,7 @@
             </td>
             <td class="py-2 px-3 space-x-1">
               <button v-if="r.status === 'completed' || (r.status === 'running' && r.result?.results && Object.keys(r.result.results).length)" @click="showReport(r)"
-                class="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 hover:bg-green-200">{{ r.status === 'running' ? '部分报告' : '报告' }}</button>
+                class="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 hover:bg-green-200">报告</button>
               <button v-if="r.status === 'running'" @click="toggleLog(r.id)"
                 class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 hover:bg-gray-200">日志</button>
               <button v-if="r.status === 'running'" @click="handleCancelRun(r.id)"
