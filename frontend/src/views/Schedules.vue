@@ -189,14 +189,44 @@
     <div v-if="expandedLogId" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="closeLog">
       <div class="bg-gray-900 rounded-lg shadow-xl w-[1100px] max-h-[85vh] flex flex-col">
         <div class="flex items-center justify-between px-5 py-3 border-b border-gray-700">
-          <div class="flex items-center gap-3">
-            <h2 class="text-base font-medium text-gray-200">运行日志</h2>
-            <span v-if="logProgress" class="text-sm text-blue-400 font-mono">{{ logProgress }}</span>
-          </div>
+          <h2 class="text-base font-medium text-gray-200">运行日志</h2>
           <button @click="closeLog" class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
         </div>
-        <div v-if="logProgressPct >= 0" class="h-1.5 bg-gray-800">
-          <div class="h-full bg-blue-500 rounded-r transition-all duration-500" :style="{ width: logProgressPct + '%' }"></div>
+        <!-- Benchmark pipeline steps -->
+        <div v-if="logBenchmarks.length" class="px-5 py-3 border-b border-gray-700 space-y-2">
+          <div v-for="bm in logBenchmarks" :key="bm.name" class="flex items-center gap-3">
+            <span class="text-xs text-gray-400 w-28 truncate font-mono" :title="bm.name">{{ _taskNames[bm.name] || bm.name }}</span>
+            <div class="flex items-center gap-1">
+              <template v-for="(s, si) in ['loading', 'running', 'done']" :key="s">
+                <div class="flex items-center gap-1">
+                  <div class="w-2 h-2 rounded-full transition-all duration-300"
+                    :class="stageCircleClass(bm, s)"></div>
+                  <span class="text-xs transition-colors duration-300"
+                    :class="stageLabelClass(bm, s)">{{ _stageNames[s] }}</span>
+                </div>
+                <div v-if="si < 2" class="w-4 h-px"
+                  :class="isStageReached(bm, ['running','done'][si]) ? 'bg-blue-500' : 'bg-gray-700'"></div>
+              </template>
+              <template v-if="bm.stage === 'failed'">
+                <div class="ml-2 w-2 h-2 rounded-full bg-red-500"></div>
+                <span class="text-xs text-red-400">失败</span>
+              </template>
+            </div>
+            <!-- Inference progress for current benchmark -->
+            <div v-if="bm.stage === 'running' && bm.progress" class="flex items-center gap-2 ml-2">
+              <div class="w-24 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div class="h-full bg-blue-500 rounded-full transition-all duration-300"
+                  :style="{ width: (bm.progressPct || 0) + '%' }"></div>
+              </div>
+              <span class="text-xs text-blue-400 font-mono">{{ bm.progress }}</span>
+            </div>
+          </div>
+        </div>
+        <!-- Overall progress bar -->
+        <div v-if="logProgressPct >= 0" class="h-1 bg-gray-800">
+          <div class="h-full rounded-r transition-all duration-500"
+            :class="logBenchmarks.every(b => b.stage === 'done') ? 'bg-green-500' : logBenchmarks.some(b => b.stage === 'failed') ? 'bg-red-500' : 'bg-blue-500'"
+            :style="{ width: logProgressPct + '%' }"></div>
         </div>
         <pre ref="logContainer" class="flex-1 overflow-y-auto p-5 text-sm text-green-300 whitespace-pre-wrap font-mono">{{ logLines.join('') || '等待日志...' }}</pre>
       </div>
@@ -301,6 +331,8 @@ const logLines = ref([])
 const logContainer = ref(null)
 const logProgress = ref('')
 const logProgressPct = ref(-1)
+const logStage = ref('')
+const logBenchmarks = ref([]) // [{ name, stage, progress, progressPct }]
 const refreshing = ref(false)
 const filterScheduleId = ref('')
 const filterStatus = ref('')
@@ -543,37 +575,54 @@ function toggleLog(runId) {
   logLines.value = []
   logProgress.value = ''
   logProgressPct.value = -1
+  logStage.value = ''
+  logBenchmarks.value = []
   const numRe = /(\d+)\/(\d+)/
   const bmRe = /\[benchmark (\d+)\/(\d+)\]\s+(\S+)(?:\s+(\S+))?/
   logEventSource = new EventSource(`/api/runs/${runId}/log`)
   logEventSource.onmessage = (e) => {
     const line = e.data
+    // Keep at most 300 lines, drop oldest 100 when exceeded
+    if (logLines.value.length >= 300) logLines.value.splice(0, 100)
     logLines.value.push(line + '\n')
-    if (logLines.value.length > 500) logLines.value.splice(0, 100)
+
     const bm = bmRe.exec(line)
     if (bm) {
-      const bmIdx = bm[1]
-      const bmTotal = bm[2]
-      const name = _taskNames[bm[3]] || bm[3]
+      const bmIdx = parseInt(bm[1])
+      const bmTotal = parseInt(bm[2])
+      const taskKey = bm[3]
       const stage = bm[4] || ''
-      const stageLabel = _stageNames[stage] || ''
+
+      // Ensure benchmark entries exist
+      if (logBenchmarks.value.length === 0 && bmTotal > 0) {
+        // We don't know all task names upfront; populate as we see them
+      }
+      // Find or create entry for this benchmark
+      let entry = logBenchmarks.value.find(b => b.name === taskKey)
+      if (!entry) {
+        entry = { name: taskKey, stage: '', progress: '', progressPct: 0 }
+        logBenchmarks.value.push(entry)
+      }
+
       const nm = numRe.exec(line)
       if (nm) {
-        logProgress.value = bmTotal !== '1' ? `${name} (${bmIdx}/${bmTotal}) 推理 ${nm[1]}/${nm[2]}` : `${name} 推理 ${nm[1]}/${nm[2]}`
+        entry.stage = 'running'
+        entry.progress = `${nm[1]}/${nm[2]}`
+        entry.progressPct = Math.round(parseInt(nm[1]) / parseInt(nm[2]) * 100)
         const taskPct = parseInt(nm[1]) / parseInt(nm[2])
-        const perBm = 100 / parseInt(bmTotal)
-        logProgressPct.value = Math.min(100, Math.round(((parseInt(bmIdx) - 1) + taskPct) * perBm))
-      } else if (stageLabel) {
-        logProgress.value = bmTotal !== '1' ? `${name} (${bmIdx}/${bmTotal}) ${stageLabel}` : `${name} ${stageLabel}`
-        const taskPct = stage === 'done' ? 1 : (stage === 'loading' ? 0.05 : 0.1)
-        const perBm = 100 / parseInt(bmTotal)
-        logProgressPct.value = Math.min(100, Math.round(((parseInt(bmIdx) - 1) + taskPct) * perBm))
+        const perBm = 100 / bmTotal
+        logProgressPct.value = Math.min(100, Math.round(((bmIdx - 1) + taskPct) * perBm))
+      } else if (stage) {
+        entry.stage = stage
+        if (stage === 'done' || stage === 'failed') entry.progress = ''
+        const taskPct = stage === 'done' ? 1 : stage === 'loading' ? 0.05 : 0.1
+        const perBm = 100 / bmTotal
+        logProgressPct.value = Math.min(100, Math.round(((bmIdx - 1) + taskPct) * perBm))
       }
     } else {
       const nm = numRe.exec(line)
       if (nm) {
-        logProgress.value = `${nm[1]}/${nm[2]}`
-        logProgressPct.value = Math.round((parseInt(nm[1]) / parseInt(nm[2])) * 100)
+        logProgressPct.value = Math.round(parseInt(nm[1]) / parseInt(nm[2]) * 100)
       }
     }
   }
@@ -594,6 +643,35 @@ function closeLog() {
   logLines.value = []
   logProgress.value = ''
   logProgressPct.value = -1
+  logStage.value = ''
+  logBenchmarks.value = []
+}
+
+const _stageOrder = ['loading', 'running', 'done']
+
+function isStageReached(bm, stage) {
+  if (bm.stage === 'failed') return false
+  return _stageOrder.indexOf(bm.stage) >= _stageOrder.indexOf(stage)
+}
+
+function stageCircleClass(bm, stage) {
+  if (bm.stage === stage) {
+    if (stage === 'done') return 'bg-green-500'
+    if (stage === 'loading') return 'bg-yellow-400 animate-pulse'
+    return 'bg-blue-500 animate-pulse'
+  }
+  if (isStageReached(bm, stage)) return 'bg-green-500'
+  return 'bg-gray-600'
+}
+
+function stageLabelClass(bm, stage) {
+  if (bm.stage === stage) {
+    if (stage === 'done') return 'text-green-400'
+    if (stage === 'loading') return 'text-yellow-400'
+    return 'text-blue-400'
+  }
+  if (isStageReached(bm, stage)) return 'text-green-500'
+  return 'text-gray-600'
 }
 
 function formatDt(dt) {
