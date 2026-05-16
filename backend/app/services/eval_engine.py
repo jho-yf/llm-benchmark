@@ -116,23 +116,33 @@ class EvalEngine:
                     log_file.flush()
 
                 current_line += text
+                lines_to_process = []
                 if '\r' in current_line or '\n' in current_line:
+                    # Split into complete lines; keep last incomplete fragment
+                    parts = current_line.replace('\r', '\n').split('\n')
+                    lines_to_process = parts[:-1]
+                    current_line = parts[-1]
+
+                for line in lines_to_process:
+                    if not line:
+                        continue
                     # Detect current benchmark from [benchmark 1/3] task_name stage
-                    if "[partial_result]" in current_line:
+                    if "[partial_result]" in line:
                         try:
-                            partial_json = current_line[current_line.index("[partial_result]") + len("[partial_result]"):].strip()
+                            partial_json = line[line.index("[partial_result]") + len("[partial_result]"):].strip()
+                            json.loads(partial_json)  # validate before writing
                             self._update_partial_result(db_url, run_id, partial_json)
                         except Exception:
                             pass
 
-                    bm = benchmark_re.search(current_line)
+                    bm = benchmark_re.search(line)
                     if bm:
                         benchmark_idx = bm.group(1)
                         benchmark_total = bm.group(2)
                         current_benchmark = bm.group(3)
                         current_stage = bm.group(4) or ""
 
-                    m = progress_re.search(current_line)
+                    m = progress_re.search(line)
                     if m:
                         progress = f"{m.group(1)}/{m.group(2)}"
                         now = time.time()
@@ -155,7 +165,6 @@ class EvalEngine:
                         if now - last_progress_update >= 2:
                             last_progress_update = now
                             self._update_progress(db_url, run_id, display)
-                    current_line = current_line.split('\r')[-1].split('\n')[-1]
 
             if log_file:
                 log_file.close()
