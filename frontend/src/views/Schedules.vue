@@ -116,9 +116,8 @@
           <col class="w-[200px]" />
           <col class="w-[100px]" />
           <col class="w-[60px]" />
-          <col class="w-[80px]" />
-          <col />
-          <col class="w-[110px]" />
+          <col class="w-[160px]" />
+          <col class="w-[160px]" />
         </colgroup>
         <thead>
           <tr class="border-b text-left text-gray-500">
@@ -128,7 +127,6 @@
             <th class="py-2 px-3">开始</th>
             <th class="py-2 px-3">耗时</th>
             <th class="py-2 px-3">状态</th>
-            <th class="py-2 px-3">结果</th>
             <th class="py-2 px-3">操作</th>
           </tr>
         </thead>
@@ -143,21 +141,14 @@
             <td class="py-2 px-3">
               <StatusBadge :status="r.status" />
               <div v-if="r.status === 'running' && r.progress" class="mt-1">
-                <div class="flex items-center gap-1.5">
-                  <div class="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                    <div class="h-full bg-blue-500 rounded-full transition-all duration-300" :style="{ width: calcProgressPct(r.progress) + '%' }"></div>
-                  </div>
-                  <span class="text-xs text-blue-600 font-mono whitespace-nowrap">{{ formatProgress(r.progress) }}</span>
-                </div>
+                <span class="text-xs text-blue-600 font-mono truncate block">{{ formatProgress(r.progress) }}</span>
               </div>
-            </td>
-            <td class="py-2 px-3 text-xs font-mono truncate max-w-[200px]" :title="formatResultFull(r.result)">
-              <span v-if="r.status === 'failed'" class="cursor-pointer text-red-600 underline" @click="showError(r)">{{ formatError(r.result) }}</span>
-              <span v-else>{{ formatResult(r.result) }}</span>
             </td>
             <td class="py-2 px-3 space-x-1">
               <button v-if="r.status === 'completed' || (r.status === 'running' && r.result?.results && Object.keys(r.result.results).length)" @click="showReport(r)"
                 class="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 hover:bg-green-200">报告</button>
+              <button v-if="r.status === 'failed'" @click="showError(r)"
+                class="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200">错误</button>
               <button v-if="r.status === 'running'" @click="toggleLog(r.id)"
                 class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 hover:bg-gray-200">日志</button>
               <button v-if="r.status === 'running'" @click="handleCancelRun(r.id)"
@@ -166,7 +157,7 @@
           </tr>
           </template>
           <tr v-if="!runs.length">
-            <td colspan="8" class="py-8 text-center text-gray-400">暂无运行记录</td>
+            <td colspan="7" class="py-8 text-center text-gray-400">暂无运行记录</td>
           </tr>
         </tbody>
       </table>
