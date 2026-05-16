@@ -584,20 +584,32 @@ let _logReplaying = false
 function _initLogBenchmarksFromProgress(runId) {
   const run = runs.value.find(r => r.id === runId)
   if (!run?.progress) return
-  // progress format: "(2/3) longbench: 134/3950" or "(2/3) longbench running"
+  // progress format: "(2/2) gsm8k: 51/1319" or "(2/3) longbench running"
   const m = run.progress.match(/^\((\d+)\/(\d+)\)\s+(\S+)/)
   if (!m) return
   const bmIdx = parseInt(m[1])
   const bmTotal = parseInt(m[2])
   const taskKey = m[3].replace(/:$/, '')
-  // Pre-populate all benchmark slots as pending
+  // Pre-populate all benchmark slots
   for (let i = 1; i <= bmTotal; i++) {
     logBenchmarks.value.push({ name: `benchmark-${i}`, stage: '', progress: '', progressPct: 0 })
+  }
+  // Mark completed benchmarks (before current)
+  for (let i = 0; i < bmIdx - 1; i++) {
+    logBenchmarks.value[i].stage = 'done'
+    logBenchmarks.value[i].progressPct = 100
   }
   // Mark current as running
   const entry = logBenchmarks.value[bmIdx - 1]
   entry.name = taskKey
   entry.stage = 'running'
+  // Parse task-level progress if present
+  const numM = run.progress.match(/(\d+)\/(\d+)\s*$/)
+  if (numM) {
+    const cur = parseInt(numM[1]), tot = parseInt(numM[2])
+    entry.progress = `${cur}/${tot}`
+    entry.progressPct = Math.round(cur / tot * 100)
+  }
   logProgressPct.value = Math.round((bmIdx - 1) / bmTotal * 100)
 }
 
@@ -646,11 +658,13 @@ function toggleLog(runId) {
       const taskKey = bm[3]
       const stage = bm[4] || ''
 
-      let entry = logBenchmarks.value.find(b => b.name === taskKey)
-      if (!entry) {
-        entry = { name: taskKey, stage: '', progress: '', progressPct: 0 }
-        logBenchmarks.value.push(entry)
+      // Ensure slots exist up to bmTotal
+      while (logBenchmarks.value.length < bmTotal) {
+        logBenchmarks.value.push({ name: `benchmark-${logBenchmarks.value.length + 1}`, stage: '', progress: '', progressPct: 0 })
       }
+      // Always update by index, not by name
+      const entry = logBenchmarks.value[bmIdx - 1]
+      entry.name = taskKey
 
       if (stage === 'running') {
         currentBmEntry = entry
