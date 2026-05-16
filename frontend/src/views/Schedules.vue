@@ -577,13 +577,16 @@ function toggleLog(runId) {
   logProgressPct.value = -1
   logStage.value = ''
   logBenchmarks.value = []
+  let currentBmEntry = null  // tracks the currently running benchmark entry
+  let currentBmTotal = 1
+  let currentBmIdx = 1
   const numRe = /(\d+)\/(\d+)/
   const bmRe = /\[benchmark (\d+)\/(\d+)\]\s+(\S+)(?:\s+(\S+))?/
   logEventSource = new EventSource(`/api/runs/${runId}/log`)
   logEventSource.onmessage = (e) => {
     const line = e.data
-    // Keep at most 300 lines, drop oldest 100 when exceeded
-    if (logLines.value.length >= 300) logLines.value.splice(0, 100)
+    // Keep at most 500 lines, drop oldest 100 when exceeded
+    if (logLines.value.length >= 500) logLines.value.splice(0, 100)
     logLines.value.push(line + '\n')
 
     const bm = bmRe.exec(line)
@@ -593,15 +596,16 @@ function toggleLog(runId) {
       const taskKey = bm[3]
       const stage = bm[4] || ''
 
-      // Ensure benchmark entries exist
-      if (logBenchmarks.value.length === 0 && bmTotal > 0) {
-        // We don't know all task names upfront; populate as we see them
-      }
-      // Find or create entry for this benchmark
       let entry = logBenchmarks.value.find(b => b.name === taskKey)
       if (!entry) {
         entry = { name: taskKey, stage: '', progress: '', progressPct: 0 }
         logBenchmarks.value.push(entry)
+      }
+
+      if (stage === 'running') {
+        currentBmEntry = entry
+        currentBmTotal = bmTotal
+        currentBmIdx = bmIdx
       }
 
       const nm = numRe.exec(line)
@@ -614,7 +618,11 @@ function toggleLog(runId) {
         logProgressPct.value = Math.min(100, Math.round(((bmIdx - 1) + taskPct) * perBm))
       } else if (stage) {
         entry.stage = stage
-        if (stage === 'done' || stage === 'failed') entry.progress = ''
+        if (stage === 'done' || stage === 'failed') {
+          entry.progress = ''
+          entry.progressPct = stage === 'done' ? 100 : 0
+          if (stage === 'done') currentBmEntry = null
+        }
         const taskPct = stage === 'done' ? 1 : stage === 'loading' ? 0.05 : 0.1
         const perBm = 100 / bmTotal
         logProgressPct.value = Math.min(100, Math.round(((bmIdx - 1) + taskPct) * perBm))
@@ -622,7 +630,18 @@ function toggleLog(runId) {
     } else {
       const nm = numRe.exec(line)
       if (nm) {
-        logProgressPct.value = Math.round(parseInt(nm[1]) / parseInt(nm[2]) * 100)
+        const cur = parseInt(nm[1])
+        const tot = parseInt(nm[2])
+        const taskPct = cur / tot
+        if (currentBmEntry) {
+          currentBmEntry.stage = 'running'
+          currentBmEntry.progress = `${cur}/${tot}`
+          currentBmEntry.progressPct = Math.round(taskPct * 100)
+          const perBm = 100 / currentBmTotal
+          logProgressPct.value = Math.min(100, Math.round(((currentBmIdx - 1) + taskPct) * perBm))
+        } else {
+          logProgressPct.value = Math.round(taskPct * 100)
+        }
       }
     }
   }
