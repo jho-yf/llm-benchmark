@@ -1,4 +1,5 @@
 VENV := backend/.venv
+PYTHON_BIN := $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null)
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 UVICORN := $(VENV)/bin/uvicorn
@@ -26,7 +27,7 @@ endif
 
 # 初始化环境
 setup:
-	cd backend && python -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/pip install pytest pytest-asyncio httpx
+	cd backend && $(PYTHON_BIN) -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/pip install pytest pytest-asyncio httpx
 	cd frontend && npm install
 
 # 本地开发
