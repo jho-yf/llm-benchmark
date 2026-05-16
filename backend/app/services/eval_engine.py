@@ -199,14 +199,17 @@ class EvalEngine:
             _running.pop(run_id, None)
             Path(payload_file.name).unlink(missing_ok=True)
 
+    def _sync_engine(self, db_url: str):
+        from sqlalchemy import create_engine
+        sync_url = db_url.replace("+aiosqlite", "")
+        return create_engine(sync_url, connect_args={"timeout": 30})
+
     def _update_progress(self, db_url: str, run_id: int, progress: str):
         """Update progress field in DB."""
-        from sqlalchemy import create_engine, text
+        from sqlalchemy import text
         from sqlalchemy.orm import Session
 
-        sync_url = db_url.replace("+aiosqlite", "")
-        engine = create_engine(sync_url)
-        with Session(engine) as session:
+        with Session(self._sync_engine(db_url)) as session:
             session.execute(
                 text("UPDATE test_run SET progress=:progress WHERE id=:id"),
                 {"progress": progress, "id": run_id},
@@ -215,12 +218,10 @@ class EvalEngine:
 
     def _update_partial_result(self, db_url: str, run_id: int, result_json: str):
         """Write partial result to DB while run is still in progress."""
-        from sqlalchemy import create_engine, text
+        from sqlalchemy import text
         from sqlalchemy.orm import Session
 
-        sync_url = db_url.replace("+aiosqlite", "")
-        engine = create_engine(sync_url)
-        with Session(engine) as session:
+        with Session(self._sync_engine(db_url)) as session:
             session.execute(
                 text("UPDATE test_run SET result=:result WHERE id=:id"),
                 {"result": result_json, "id": run_id},
@@ -231,12 +232,10 @@ class EvalEngine:
         self, db_url: str, run_id: int, status: str, result: str
     ):
         """Update test run status in a separate sync session."""
-        from sqlalchemy import create_engine, text
+        from sqlalchemy import text
         from sqlalchemy.orm import Session
 
-        sync_url = db_url.replace("+aiosqlite", "")
-        engine = create_engine(sync_url)
-        with Session(engine) as session:
+        with Session(self._sync_engine(db_url)) as session:
             session.execute(
                 text(
                     "UPDATE test_run SET status=:status, result=:result, "
@@ -261,7 +260,7 @@ class EvalEngine:
 
         log_file = LOGS_DIR / f"run_{uuid.uuid4().hex[:8]}.log"
         sync_url = db_url.replace("+aiosqlite", "")
-        engine = create_engine(sync_url)
+        engine = create_engine(sync_url, connect_args={"timeout": 30})
         with Session(engine) as session:
             result = session.execute(
                 text(
