@@ -1,73 +1,61 @@
-# 每日定时基准测试计划
+# 005: 每日定时 Benchmark 计划
 
-## 目标模型
+## 目标
 
-| # | 模型 | 参数量 |
-|---|------|--------|
-| 1 | qwen2.5-1.5b-instruct | 1.5B |
-| 2 | deepseek-r1-distill-qwen-7b | 7B |
-| 3 | deepseek-v2-lite-chat | 16B |
-| 4 | qwen3.5-35b | 35B |
+对 4 个模型每日自动运行 benchmark，跟踪模型能力变化趋势。
 
-## 评测基准
+## 模型列表
 
-Chat API 兼容的 5 个基准，按耗时分为两批：
+| 模型 | 参数量 | 定位 |
+|------|--------|------|
+| qwen3.5-35b | 35B | 旗舰级通用模型 |
+| deepseek-v2-lite-chat | 16B MoE | 中等规模 Chat 模型 |
+| qwen2.5-1.5b-instruct | 1.5B | 轻量级端侧模型 |
+| deepseek-r1-distill-qwen-7b | 7B | 推理蒸馏模型 |
 
-| 批次 | Benchmark | 考察能力 | 单模型预估耗时（concurrent=8） |
-|------|-----------|---------|------|
-| 快速 | HumanEval | 代码生成 | ~2 min |
-| 快速 | GSM8K | 数学推理 | ~15 min |
-| 快速 | TruthfulQA | 安全对齐 | ~10 min |
-| 深度 | MATH | 高等数学 | ~55 min |
-| 深度 | BBH | 通用推理 | ~70 min |
+## Benchmark 选择依据
 
-## 每日执行时间表
+| Benchmark | 题量 | 耗时估算 | qwen3.5-35b | deepseek-v2-lite | qwen2.5-1.5b | deepseek-r1-7b |
+|-----------|------|---------|-------------|------------------|---------------|----------------|
+| MMLU (5-shot) | 14042 | 2-3h | ✅ 知识面广 | ✅ 对比基线 | ❌ 1.5B 不适合 | ✅ 推理+知识 |
+| C-Eval (5-shot) | 13948 | 2-3h | ✅ 中文能力 | ✅ 中文基线 | ✅ 中文核心指标 | ✅ 中文推理 |
+| GSM8K (8-shot) | 1319 | 30-60min | ✅ 数学推理 | ✅ 推理基线 | ✅ 基础推理 | ✅ 推理优势 |
+| HumanEval (0-shot) | 164 | 10-20min | ✅ 代码生成 | ✅ 代码基线 | ❌ 太小无意义 | ✅ 代码推理 |
 
-每个模型每天跑 2 个定时任务（快速批 + 深度批），共 **8 个定时任务**。
+**共 14 个定时任务**（qwen2.5-1.5b 仅 C-Eval + GSM8K）。
 
-### 快速批（HumanEval + GSM8K + TruthfulQA）
+## 每日调度时间表
 
-| 时间 | 模型 | 预计完成 |
-|------|------|---------|
-| 01:00 | qwen2.5-1.5b-instruct | ~01:30 |
-| 01:30 | deepseek-r1-distill-qwen-7b | ~02:00 |
-| 02:00 | deepseek-v2-lite-chat | ~02:30 |
-| 02:30 | qwen3.5-35b | ~03:00 |
-
-### 深度批（MATH + BBH）
-
-| 时间 | 模型 | 预计完成 |
-|------|------|---------|
-| 03:00 | qwen2.5-1.5b-instruct | ~04:45 |
-| 03:30 | deepseek-r1-distill-qwen-7b | ~05:15 |
-| 04:00 | deepseek-v2-lite-chat | ~05:45 |
-| 04:30 | qwen3.5-35b | ~06:15 |
-
-> 全部完成约 06:15，整体耗时约 5 小时。模型间错开 30 分钟启动，避免 API 并发过载。
-
-## 定时任务配置清单
-
-| 任务名 | 模型 | Benchmark | Cron |
-|--------|------|-----------|------|
-| daily-quick-qwen2.5-1.5b | qwen2.5-1.5b-instruct | humaneval, gsm8k, truthfulqa_gen | `0 1 * * *` |
-| daily-quick-ds-r1-7b | deepseek-r1-distill-qwen-7b | humaneval, gsm8k, truthfulqa_gen | `30 1 * * *` |
-| daily-quick-ds-v2-lite | deepseek-v2-lite-chat | humaneval, gsm8k, truthfulqa_gen | `0 2 * * *` |
-| daily-quick-qwen3.5-35b | qwen3.5-35b | humaneval, gsm8k, truthfulqa_gen | `30 2 * * *` |
-| daily-deep-qwen2.5-1.5b | qwen2.5-1.5b-instruct | math, bbh_cot_fewshot | `0 3 * * *` |
-| daily-deep-ds-r1-7b | deepseek-r1-distill-qwen-7b | math, bbh_cot_fewshot | `30 3 * * *` |
-| daily-deep-ds-v2-lite | deepseek-v2-lite-chat | math, bbh_cot_fewshot | `0 4 * * *` |
-| daily-deep-qwen3.5-35b | qwen3.5-35b | math, bbh_cot_fewshot | `30 4 * * *` |
-
-## 时间线总览
+按模型分时间段，避免并发导致 API 过载：
 
 ```
-01:00 ── qwen2.5 ── 快速批 ──┐
-01:30 ── ds-r1-7b ─ 快速批 ──┤
-02:00 ── ds-v2 ──── 快速批 ──┤
-02:30 ── qwen3.5 ── 快速批 ──┘
-03:00 ── qwen2.5 ── 深度批 ────────┐
-03:30 ── ds-r1-7b ─ 深度批 ────────┤
-04:00 ── ds-v2 ──── 深度批 ────────┤
-04:30 ── qwen3.5 ── 深度批 ────────┘
-                                   ~06:15 全部完成
+时段           模型                    Benchmark
+──────────────────────────────────────────────────
+00:02         qwen3.5-35b             MMLU
+00:32         qwen3.5-35b             C-Eval
+01:02         deepseek-v2-lite-chat   MMLU
+01:32         deepseek-v2-lite-chat   C-Eval
+02:02         qwen2.5-1.5b-instruct   C-Eval
+03:02         deepseek-r1-7b          MMLU
+03:32         deepseek-r1-7b          C-Eval
+04:02         qwen2.5-1.5b-instruct   GSM8K
+06:02         qwen3.5-35b             GSM8K
+06:32         qwen3.5-35b             HumanEval
+07:02         deepseek-v2-lite-chat   GSM8K
+07:32         deepseek-v2-lite-chat   HumanEval
+08:02         deepseek-r1-7b          GSM8K
+08:32         deepseek-r1-7b          HumanEval
 ```
+
+- 大题量任务（MMLU、C-Eval）集中在凌晨 00:00-04:00，预留充足执行时间
+- 小题量任务（GSM8K、HumanEval）放在早晨，快速完成
+- qwen2.5-1.5b-instruct 的 GSM8K 放 04:02，与其他模型的 GSM8K 错开
+
+## 种子数据
+
+SQL 文件：`backend/seed.sql`
+
+- API 地址、认证方式需根据实际部署修改
+- 所有任务默认启用，可通过页面关闭
+- 并发数默认 8，stream 默认开启
+z
