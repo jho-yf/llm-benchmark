@@ -188,6 +188,36 @@ async def trigger_schedule(job_id: int, db: AsyncSession = Depends(get_db)):
     return {"run_id": run_id, "status": "started"}
 
 
+@router.post("/import", response_model=list[ScheduleResponse], status_code=201)
+async def import_schedules(items: list[ScheduleCreate], db: AsyncSession = Depends(get_db)):
+    created = []
+    for body in items:
+        job = ScheduledJob(
+            name=body.name,
+            cron_expr=body.cron_expr,
+            llm_provider=body.llm.provider,
+            llm_api_base=body.llm.api_base,
+            llm_api_key=body.llm.api_key,
+            llm_auth_type=body.llm.auth_type,
+            llm_model_id=body.llm.model_id,
+            llm_stream=body.llm.stream,
+            llm_params=json.dumps(body.llm.params) if body.llm.params else None,
+            benchmark_name=body.benchmark.name,
+            benchmark_category=body.benchmark.category,
+            benchmark_config=json.dumps(body.benchmark.config),
+            benchmark_metrics=json.dumps(body.benchmark.metrics) if body.benchmark.metrics else None,
+            benchmark_params=json.dumps(body.benchmark.params) if body.benchmark.params else None,
+            expires_at=body.expires_at,
+        )
+        db.add(job)
+        created.append(job)
+    await db.commit()
+    for job in created:
+        await db.refresh(job)
+        sched.add_job(job)
+    return [_job_to_response(j) for j in created]
+
+
 @router.post("/test-connection")
 async def test_connection(body: ScheduleTestConnection, db: AsyncSession = Depends(get_db)):
     api_key = body.api_key

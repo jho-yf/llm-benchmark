@@ -5,6 +5,7 @@ const api = axios.create({ baseURL: '/api' })
 // Schedules
 export const listSchedules = () => api.get('/schedules').then(r => r.data)
 export const createSchedule = (data) => api.post('/schedules', data).then(r => r.data)
+export const importSchedules = (items) => api.post('/schedules/import', items).then(r => r.data)
 export const updateSchedule = (id, data) => api.put(`/schedules/${id}`, data).then(r => r.data)
 export const deleteSchedule = (id) => api.delete(`/schedules/${id}`)
 export const toggleSchedule = (id) => api.post(`/schedules/${id}/toggle`).then(r => r.data)

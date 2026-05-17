@@ -1,0 +1,268 @@
+[
+  {
+    "name": "qwen3.5-35b / MMLU (5-shot)",
+    "cron_expr": "2 0 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "qwen3.5-35b",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "MMLU (5-shot)",
+      "category": "knowledge",
+      "config": {"tasks": ["mmlu_generative"], "num_fewshot": {"mmlu_generative": 5}, "limit": null, "batch_size": 1},
+      "metrics": {"accuracy": "exact_match"}
+    }
+  },
+  {
+    "name": "qwen3.5-35b / C-Eval (5-shot)",
+    "cron_expr": "32 0 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "qwen3.5-35b",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "C-Eval (5-shot)",
+      "category": "knowledge",
+      "config": {"tasks": ["ceval_gen"], "num_fewshot": {"ceval_gen": 5}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 32}},
+      "metrics": {"accuracy": "exact_match"}
+    }
+  },
+  {
+    "name": "qwen3.5-35b / GSM8K (8-shot)",
+    "cron_expr": "2 6 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "qwen3.5-35b",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "GSM8K (8-shot)",
+      "category": "math",
+      "config": {"tasks": ["gsm8k"], "num_fewshot": {"gsm8k": 8}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 512}},
+      "metrics": {"accuracy": "exact_match"}
+    }
+  },
+  {
+    "name": "qwen3.5-35b / HumanEval (0-shot)",
+    "cron_expr": "32 6 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "qwen3.5-35b",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "HumanEval (0-shot)",
+      "category": "coding",
+      "config": {"tasks": ["humaneval"], "num_fewshot": {"humaneval": 0}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 1024}},
+      "metrics": {"pass@1": "pass@1"}
+    }
+  },
+  {
+    "name": "deepseek-v2-lite-chat / MMLU (5-shot)",
+    "cron_expr": "2 1 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "deepseek-v2-lite-chat",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "MMLU (5-shot)",
+      "category": "knowledge",
+      "config": {"tasks": ["mmlu_generative"], "num_fewshot": {"mmlu_generative": 5}, "limit": null, "batch_size": 1},
+      "metrics": {"accuracy": "exact_match"}
+    }
+  },
+  {
+    "name": "deepseek-v2-lite-chat / C-Eval (5-shot)",
+    "cron_expr": "32 1 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "deepseek-v2-lite-chat",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "C-Eval (5-shot)",
+      "category": "knowledge",
+      "config": {"tasks": ["ceval_gen"], "num_fewshot": {"ceval_gen": 5}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 32}},
+      "metrics": {"accuracy": "exact_match"}
+    }
+  },
+  {
+    "name": "deepseek-v2-lite-chat / GSM8K (8-shot)",
+    "cron_expr": "2 7 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "deepseek-v2-lite-chat",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "GSM8K (8-shot)",
+      "category": "math",
+      "config": {"tasks": ["gsm8k"], "num_fewshot": {"gsm8k": 8}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 512}},
+      "metrics": {"accuracy": "exact_match"}
+    }
+  },
+  {
+    "name": "deepseek-v2-lite-chat / HumanEval (0-shot)",
+    "cron_expr": "32 7 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "deepseek-v2-lite-chat",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "HumanEval (0-shot)",
+      "category": "coding",
+      "config": {"tasks": ["humaneval"], "num_fewshot": {"humaneval": 0}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 1024}},
+      "metrics": {"pass@1": "pass@1"}
+    }
+  },
+  {
+    "name": "qwen2.5-1.5b-instruct / C-Eval (5-shot)",
+    "cron_expr": "2 2 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "qwen2.5-1.5b-instruct",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "C-Eval (5-shot)",
+      "category": "knowledge",
+      "config": {"tasks": ["ceval_gen"], "num_fewshot": {"ceval_gen": 5}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 32}},
+      "metrics": {"accuracy": "exact_match"}
+    }
+  },
+  {
+    "name": "qwen2.5-1.5b-instruct / GSM8K (8-shot)",
+    "cron_expr": "2 4 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "qwen2.5-1.5b-instruct",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "GSM8K (8-shot)",
+      "category": "math",
+      "config": {"tasks": ["gsm8k"], "num_fewshot": {"gsm8k": 8}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 512}},
+      "metrics": {"accuracy": "exact_match"}
+    }
+  },
+  {
+    "name": "deepseek-r1-7b / MMLU (5-shot)",
+    "cron_expr": "2 3 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "deepseek-r1-distill-qwen-7b",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "MMLU (5-shot)",
+      "category": "knowledge",
+      "config": {"tasks": ["mmlu_generative"], "num_fewshot": {"mmlu_generative": 5}, "limit": null, "batch_size": 1},
+      "metrics": {"accuracy": "exact_match"}
+    }
+  },
+  {
+    "name": "deepseek-r1-7b / C-Eval (5-shot)",
+    "cron_expr": "32 3 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "deepseek-r1-distill-qwen-7b",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "C-Eval (5-shot)",
+      "category": "knowledge",
+      "config": {"tasks": ["ceval_gen"], "num_fewshot": {"ceval_gen": 5}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 32}},
+      "metrics": {"accuracy": "exact_match"}
+    }
+  },
+  {
+    "name": "deepseek-r1-7b / GSM8K (8-shot)",
+    "cron_expr": "2 8 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "deepseek-r1-distill-qwen-7b",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "GSM8K (8-shot)",
+      "category": "math",
+      "config": {"tasks": ["gsm8k"], "num_fewshot": {"gsm8k": 8}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 512}},
+      "metrics": {"accuracy": "exact_match"}
+    }
+  },
+  {
+    "name": "deepseek-r1-7b / HumanEval (0-shot)",
+    "cron_expr": "32 8 * * *",
+    "llm": {
+      "provider": "custom",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": null,
+      "auth_type": "none",
+      "model_id": "deepseek-r1-distill-qwen-7b",
+      "stream": true,
+      "params": {"num_concurrent": 8}
+    },
+    "benchmark": {
+      "name": "HumanEval (0-shot)",
+      "category": "coding",
+      "config": {"tasks": ["humaneval"], "num_fewshot": {"humaneval": 0}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 1024}},
+      "metrics": {"pass@1": "pass@1"}
+    }
+  }
+]

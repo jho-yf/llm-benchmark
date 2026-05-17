@@ -6,6 +6,10 @@
       <button @click="showForm = true; formReadonly = false; editingSchedule = null" class="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
         + 新建定时任务
       </button>
+      <button @click="triggerImport" class="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
+        导入计划
+      </button>
+      <input ref="importInput" type="file" accept=".json" class="hidden" @change="handleImport" />
     </div>
 
     <!-- Schedule Table -->
@@ -338,6 +342,7 @@ import { Cron } from 'croner'
 import {
   listSchedules, createSchedule, updateSchedule,
   deleteSchedule, toggleSchedule, triggerSchedule, listRuns, deleteRuns, cancelRun,
+  importSchedules,
 } from '../api'
 
 const schedules = ref([])
@@ -348,6 +353,7 @@ const editingSchedule = ref(null)
 const formReadonly = ref(false)
 const errorMessage = ref(null)
 const reportRun = ref(null)
+const importInput = ref(null)
 const selectedRunIds = ref(new Set())
 const expandedLogId = ref(null)
 const logLines = ref([])
@@ -572,6 +578,30 @@ async function handleDelete(s) {
   if (!confirm(`确定删除「${s.name}」？`)) return
   await deleteSchedule(s.id)
   await refresh()
+}
+
+function triggerImport() {
+  importInput.value?.click()
+}
+
+async function handleImport(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  e.target.value = ''
+  try {
+    const text = await file.text()
+    const items = JSON.parse(text)
+    if (!Array.isArray(items)) {
+      errorMessage.value = '文件格式错误：需要 JSON 数组'
+      return
+    }
+    const res = await importSchedules(items)
+    errorMessage.value = null
+    await refresh()
+    alert(`成功导入 ${res.length} 个定时任务`)
+  } catch (err) {
+    errorMessage.value = `导入失败：${err.response?.data?.detail || err.message}`
+  }
 }
 
 function toggleRunSelect(id) {
