@@ -28,10 +28,10 @@ def main():
                 print(f"  {len(configs)} configs: {configs[:5]}{'...' if len(configs) > 5 else ''}")
                 for i, cfg in enumerate(configs):
                     print(f"  [{i+1}/{len(configs)}] {cfg}...", end=" ", flush=True)
-                    load_dataset(repo_id, cfg, trust_remote_code=True)
+                    load_dataset(repo_id, cfg)
                     print("OK")
             else:
-                load_dataset(repo_id, trust_remote_code=True)
+                load_dataset(repo_id)
                 print("  OK")
         except Exception as e:
             print(f"  WARN: {e}", file=sys.stderr)
