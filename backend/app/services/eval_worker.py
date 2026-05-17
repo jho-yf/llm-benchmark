@@ -1,22 +1,65 @@
 """Subprocess worker for running lm-eval. Outputs JSON result to stdout."""
 import asyncio
 import json
+import logging
 import os
 import sys
+import time
+
+_req_logger = logging.getLogger("lm_eval.api")
+# Ensure request logs are visible regardless of lm-eval's own logging config
+_req_logger.setLevel(logging.INFO)
 
 os.environ.setdefault("HF_ALLOW_CODE_EVAL", "1")
 
-# Global token usage accumulator
-_token_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+def _mask_headers(headers):
+    """Mask sensitive values in headers for safe logging."""
+    if not headers:
+        return headers
+    masked = {}
+    for k, v in headers.items():
+        kl = k.lower()
+        if kl in ("authorization", "api-key") and isinstance(v, str) and len(v) > 8:
+            masked[k] = v[:4] + "****" + v[-4:]
+        else:
+            masked[k] = v
+    return masked
+
+
+def _log_request(url, headers, payload):
+    """Log full request details for debugging."""
+    _req_logger.info(
+        "[LLM Request]\n  URL: %s\n  Headers: %s\n  Payload: %s",
+        url,
+        json.dumps(_mask_headers(headers), ensure_ascii=False),
+        json.dumps(payload, ensure_ascii=False, default=str),
+    )
+
+
+# Global statistics accumulator
+_stats = {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0,
+    "request_count": 0,
+    "total_latency_ms": 0.0,
+}
 
 
 def _accumulate_usage(usage):
     """Accumulate token usage from a single API response."""
     if not usage or not isinstance(usage, dict):
         return
-    _token_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
-    _token_usage["completion_tokens"] += usage.get("completion_tokens", 0)
-    _token_usage["total_tokens"] += usage.get("total_tokens", 0)
+    _stats["prompt_tokens"] += usage.get("prompt_tokens", 0)
+    _stats["completion_tokens"] += usage.get("completion_tokens", 0)
+    _stats["total_tokens"] += usage.get("total_tokens", 0)
+
+
+def _accumulate_latency(latency_ms):
+    """Accumulate request latency."""
+    _stats["request_count"] += 1
+    _stats["total_latency_ms"] += latency_ms
 
 
 def _patch_stream_mode():
@@ -51,7 +94,9 @@ def _patch_stream_mode():
 
         is_stream = payload.get("stream", False)
         cache_method = "generate_until" if generate else "loglikelihood"
+        _log_request(self.base_url, self.header, payload)
         acquired = await sem.acquire()
+        _t0 = time.monotonic()
         try:
             async with session.post(
                 self.base_url, json=payload, headers=self.header,
@@ -69,7 +114,8 @@ def _patch_stream_mode():
                     outputs = await _read_sse_async(response)
                 else:
                     outputs = await response.json()
-                    _accumulate_usage(outputs.get("usage"))
+                _accumulate_usage(outputs.get("usage"))
+                _accumulate_latency((time.monotonic() - _t0) * 1000)
 
             tmp_answers = (
                 self.parse_generations(outputs=outputs)
@@ -121,6 +167,8 @@ def _patch_stream_mode():
             **kwargs,
         )
         is_stream = payload.get("stream", False)
+        _log_request(self.base_url, self.header, payload)
+        _t0 = time.monotonic()
         try:
             response = req.post(
                 self.base_url, json=payload, headers=self.header,
@@ -137,7 +185,8 @@ def _patch_stream_mode():
                 outputs = _read_sse_sync(response)
             else:
                 outputs = response.json()
-                _accumulate_usage(outputs.get("usage"))
+            _accumulate_usage(outputs.get("usage"))
+            _accumulate_latency((time.monotonic() - _t0) * 1000)
             return outputs
         except RetryError:
             import logging
@@ -149,7 +198,11 @@ def _patch_stream_mode():
     TemplateAPI.model_call = _stream_model_call
 
     # --- patch _create_payload to inject stream:true ---
-    _orig_create_payload = TemplateAPI._create_payload
+    # LocalChatCompletion overrides _create_payload, so we must patch
+    # the concrete class, not the abstract base.
+    from lm_eval.models.openai_completions import LocalChatCompletion
+
+    _orig_create_payload = LocalChatCompletion._create_payload
 
     def _streaming_create_payload(self, messages, *, generate=True,
                                   gen_kwargs=None, seed=1234, eos=None,
@@ -162,7 +215,7 @@ def _patch_stream_mode():
             payload["stream"] = True
         return payload
 
-    TemplateAPI._create_payload = _streaming_create_payload
+    LocalChatCompletion._create_payload = _streaming_create_payload
     TemplateAPI._stream_enabled = False
 
 
@@ -312,6 +365,13 @@ def _patch_concurrent_gather():
 
 
 def main():
+    # Configure logging so request details are visible in stderr
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+        stream=sys.stderr,
+    )
+
     payload_path = sys.argv[1]
     with open(payload_path) as f:
         payload = json.load(f)
@@ -343,6 +403,10 @@ def main():
     from lm_eval import evaluator
     from lm_eval.tasks import TaskManager
     from lm_eval.models.api_models import TemplateAPI
+
+    # Ensure request logs are visible after lm-eval configures its own logging
+    _req_logger.setLevel(logging.INFO)
+    logging.getLogger("lm_eval").setLevel(logging.INFO)
 
     # Enable stream on the class so _create_payload picks it up
     TemplateAPI._stream_enabled = stream_enabled
@@ -492,6 +556,17 @@ def main():
             return [_sanitize(v) for v in obj]
         return obj
 
+    def _build_token_stats():
+        """Build token stats dict with derived metrics."""
+        s = dict(_stats)
+        total_ms = s["total_latency_ms"]
+        comp = s["completion_tokens"]
+        req = s["request_count"]
+        s["avg_latency_ms"] = round(total_ms / req, 1) if req else 0
+        s["tokens_per_second"] = round(comp / (total_ms / 1000), 2) if total_ms > 0 else 0
+        s["ms_per_token"] = round(total_ms / comp, 2) if comp else 0
+        return s
+
     # Run each task separately so we can show per-benchmark progress
     merged = {"results": {}, "configs": {}, "n-samples": {}, "n-shot": {}, "versions": {}}
     total = len(task_list)
@@ -515,7 +590,7 @@ def main():
                 if key in batch and isinstance(batch[key], dict):
                     merged[key].update(batch[key])
             sys.stderr.write(f"[benchmark {idx + 1}/{total}] {task_name} done\n")
-            partial = {**merged, "token_usage": dict(_token_usage)}
+            partial = {**merged, "token_usage": dict(_stats), "token_stats": _build_token_stats()}
             sys.stderr.write(f"[partial_result] {json.dumps(_sanitize(partial))}\n")
             sys.stderr.flush()
         except Exception as e:
@@ -523,7 +598,7 @@ def main():
             sys.stderr.write(f"[benchmark {idx + 1}/{total}] {task_name} failed: {e}\n")
             sys.stderr.flush()
 
-    output = {**merged, "token_usage": dict(_token_usage)}
+    output = {**merged, "token_usage": dict(_stats), "token_stats": _build_token_stats()}
     if task_errors:
         error_msg = "; ".join(f"{t}: {e}" for t, e in task_errors.items())
         if not merged["results"]:

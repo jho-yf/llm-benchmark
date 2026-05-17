@@ -245,9 +245,9 @@
             <div><span class="text-gray-500">开始时间：</span>{{ formatDt(reportRun.started_at) }}</div>
             <div><span class="text-gray-500">耗时：</span>{{ duration(reportRun) }}</div>
           </div>
-          <!-- Token Usage -->
+          <!-- Token Stats -->
           <div v-if="reportTokenUsage" class="bg-gray-50 border rounded p-3">
-            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Token 消耗</h3>
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Token 统计</h3>
             <div class="grid grid-cols-3 gap-3 text-sm">
               <div>
                 <div class="text-2xl font-bold text-blue-600 font-mono">{{ formatNumber(reportTokenUsage.prompt_tokens) }}</div>
@@ -260,6 +260,24 @@
               <div>
                 <div class="text-2xl font-bold text-purple-600 font-mono">{{ formatNumber(reportTokenUsage.total_tokens) }}</div>
                 <div class="text-xs text-gray-400">Total Tokens</div>
+              </div>
+            </div>
+            <div v-if="reportTokenStats" class="grid grid-cols-4 gap-3 text-sm mt-3 pt-3 border-t border-gray-200">
+              <div>
+                <div class="text-lg font-bold text-gray-700 font-mono">{{ formatNumber(reportTokenStats.request_count) }}</div>
+                <div class="text-xs text-gray-400">请求数</div>
+              </div>
+              <div>
+                <div class="text-lg font-bold text-gray-700 font-mono">{{ formatLatency(reportTokenStats.avg_latency_ms) }}</div>
+                <div class="text-xs text-gray-400">平均延迟</div>
+              </div>
+              <div>
+                <div class="text-lg font-bold text-orange-600 font-mono">{{ reportTokenStats.tokens_per_second || 0 }}</div>
+                <div class="text-xs text-gray-400">Tokens/s</div>
+              </div>
+              <div>
+                <div class="text-lg font-bold text-gray-700 font-mono">{{ formatLatency(reportTokenStats.ms_per_token) }}</div>
+                <div class="text-xs text-gray-400">ms/Token</div>
               </div>
             </div>
           </div>
@@ -369,6 +387,13 @@ const reportTokenUsage = computed(() => {
   const usage = reportRun.value.result.token_usage
   if (!usage || (!usage.prompt_tokens && !usage.completion_tokens)) return null
   return usage
+})
+
+const reportTokenStats = computed(() => {
+  if (!reportRun.value?.result) return null
+  const stats = reportRun.value.result.token_stats
+  if (!stats || !stats.request_count) return null
+  return stats
 })
 
 const _metricDescs = {
@@ -493,7 +518,7 @@ onMounted(() => {
   refresh()
   autoRefreshTimer = setInterval(() => {
     if (autoRefresh.value) refresh()
-  }, 5000)
+  }, 30000)
 })
 
 onUnmounted(() => {
@@ -897,6 +922,12 @@ function showReport(r) {
 function formatNumber(n) {
   if (n == null) return '-'
   return n.toLocaleString()
+}
+
+function formatLatency(ms) {
+  if (ms == null || ms === 0) return '-'
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  return `${(ms / 1000).toFixed(1)}s`
 }
 
 const _nextRunsCache = new Map()
