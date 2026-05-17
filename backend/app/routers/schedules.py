@@ -140,6 +140,14 @@ async def delete_schedule(job_id: int, db: AsyncSession = Depends(get_db)):
     await db.commit()
 
 
+@router.post("/batch-delete", status_code=204)
+async def batch_delete_schedules(ids: list[int], db: AsyncSession = Depends(get_db)):
+    for job_id in ids:
+        sched.remove_job(job_id)
+    await db.execute(ScheduledJob.__table__.delete().where(ScheduledJob.id.in_(ids)))
+    await db.commit()
+
+
 @router.post("/{job_id}/toggle", response_model=ScheduleResponse)
 async def toggle_schedule(job_id: int, db: AsyncSession = Depends(get_db)):
     job = await db.get(ScheduledJob, job_id)
@@ -216,6 +224,44 @@ async def import_schedules(items: list[ScheduleCreate], db: AsyncSession = Depen
         await db.refresh(job)
         sched.add_job(job)
     return [_job_to_response(j) for j in created]
+
+
+@router.get("/export")
+async def export_schedules(ids: str | None = None, db: AsyncSession = Depends(get_db)):
+    from fastapi.responses import Response
+    query = select(ScheduledJob).order_by(ScheduledJob.id)
+    if ids:
+        id_list = [int(i) for i in ids.split(",") if i.strip()]
+        query = query.where(ScheduledJob.id.in_(id_list))
+    result = await db.execute(query)
+    jobs = result.scalars().all()
+    items = []
+    for job in jobs:
+        items.append({
+            "name": job.name,
+            "cron_expr": job.cron_expr,
+            "llm": {
+                "provider": job.llm_provider,
+                "api_base": job.llm_api_base,
+                "api_key": job.llm_api_key,
+                "auth_type": job.llm_auth_type,
+                "model_id": job.llm_model_id,
+                "stream": job.llm_stream,
+                "params": json.loads(job.llm_params) if job.llm_params else None,
+            },
+            "benchmark": {
+                "name": job.benchmark_name,
+                "category": job.benchmark_category,
+                "config": json.loads(job.benchmark_config),
+                "metrics": json.loads(job.benchmark_metrics) if job.benchmark_metrics else None,
+                "params": json.loads(job.benchmark_params) if job.benchmark_params else None,
+            },
+        })
+    return Response(
+        content=json.dumps(items, indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=schedules.json"},
+    )
 
 
 @router.post("/test-connection")

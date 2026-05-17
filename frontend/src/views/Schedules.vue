@@ -3,13 +3,21 @@
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-xl font-bold text-gray-800">LLM Benchmark</h1>
-      <button @click="showForm = true; formReadonly = false; editingSchedule = null" class="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-        + 新建定时任务
-      </button>
-      <button @click="triggerImport" class="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
-        导入计划
-      </button>
-      <input ref="importInput" type="file" accept=".json" class="hidden" @change="handleImport" />
+      <div class="flex items-center gap-2">
+        <button @click="handleExport" title="导出计划" class="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded disabled:opacity-40" :disabled="selectedScheduleIds.size === 0 && schedules.length === 0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button @click="triggerImport" title="导入计划" class="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </button>
+        <input ref="importInput" type="file" accept=".json" class="hidden" @change="handleImport" />
+        <button v-if="selectedScheduleIds.size > 0" @click="handleBatchDelete" title="删除选中" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+        </button>
+        <button @click="showForm = true; formReadonly = false; editingSchedule = null" title="新建定时任务" class="p-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
     </div>
 
     <!-- Schedule Table -->
@@ -24,6 +32,9 @@
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b text-left text-gray-500">
+            <th class="py-2 px-3 w-8">
+              <input type="checkbox" :checked="isAllSchedulesSelected" :indeterminate.prop="isSomeSchedulesSelected && !isAllSchedulesSelected" @change="toggleAllSchedules" class="rounded" />
+            </th>
             <th class="py-2 px-3">名称</th>
             <th class="py-2 px-3">模型</th>
             <th class="py-2 px-3">Benchmark</th>
@@ -38,13 +49,11 @@
             class="border-b hover:bg-gray-50 cursor-pointer"
             :class="filterScheduleId === s.id ? 'bg-blue-50' : ''"
             @click="selectSchedule(s)">
-            <td class="py-2 px-3">
-              <div class="flex items-center gap-1.5">
-                <button @click.stop="handleDuplicate(s)" title="复制" class="text-gray-300 hover:text-purple-600 shrink-0">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                </button>
-                <span>{{ s.name }}</span>
-              </div>
+            <td class="py-2 px-3" @click.stop>
+              <input type="checkbox" :value="s.id" v-model="scheduleCheckModel" class="rounded" />
+            </td>
+            <td class="py-2 px-3 max-w-[200px]">
+              <span class="truncate block" :title="s.name">{{ s.name }}</span>
             </td>
             <td class="py-2 px-3">{{ s.llm_model_id }}</td>
             <td class="py-2 px-3">{{ s.benchmark_name }}</td>
@@ -73,12 +82,14 @@
                 class="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-40 disabled:cursor-not-allowed">触发</button>
               <button @click="openScheduleForm(s)"
                 class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700 hover:bg-gray-200">{{ isScheduleRunning(s) ? '查看' : '编辑' }}</button>
+              <button @click.stop="handleDuplicate(s)"
+                class="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 hover:bg-purple-200">复制</button>
               <button @click="handleDelete(s)" :disabled="isScheduleRunning(s)"
                 class="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-40 disabled:cursor-not-allowed">删除</button>
             </td>
           </tr>
           <tr v-if="!filteredSchedules.length">
-            <td colspan="7" class="py-8 text-center text-gray-400">暂无定时任务</td>
+            <td colspan="8" class="py-8 text-center text-gray-400">暂无定时任务</td>
           </tr>
         </tbody>
       </table>
@@ -341,8 +352,8 @@ import ScheduleForm from '../components/ScheduleForm.vue'
 import { Cron } from 'croner'
 import {
   listSchedules, createSchedule, updateSchedule,
-  deleteSchedule, toggleSchedule, triggerSchedule, listRuns, deleteRuns, cancelRun,
-  importSchedules,
+  deleteSchedule, batchDeleteSchedules, toggleSchedule, triggerSchedule, listRuns, deleteRuns, cancelRun,
+  importSchedules, exportSchedules,
 } from '../api'
 
 const schedules = ref([])
@@ -355,6 +366,7 @@ const errorMessage = ref(null)
 const reportRun = ref(null)
 const importInput = ref(null)
 const selectedRunIds = ref(new Set())
+const selectedScheduleIds = ref(new Set())
 const expandedLogId = ref(null)
 const logLines = ref([])
 const logContainer = ref(null)
@@ -381,6 +393,27 @@ const filteredSchedules = computed(() => {
   if (!filterScheduleModel.value) return schedules.value
   return schedules.value.filter(s => s.llm_model_id === filterScheduleModel.value)
 })
+
+const scheduleCheckModel = computed({
+  get: () => [...selectedScheduleIds.value],
+  set: (ids) => { selectedScheduleIds.value = new Set(ids) },
+})
+
+const isAllSchedulesSelected = computed(() => {
+  return filteredSchedules.value.length > 0 && filteredSchedules.value.every(s => selectedScheduleIds.value.has(s.id))
+})
+const isSomeSchedulesSelected = computed(() => {
+  return filteredSchedules.value.some(s => selectedScheduleIds.value.has(s.id))
+})
+function toggleAllSchedules(e) {
+  if (e.target.checked) {
+    for (const s of filteredSchedules.value) selectedScheduleIds.value.add(s.id)
+  } else {
+    for (const s of filteredSchedules.value) selectedScheduleIds.value.delete(s.id)
+  }
+  selectedScheduleIds.value = new Set(selectedScheduleIds.value)
+}
+
 let autoRefreshTimer = null
 
 const isAllSelected = computed(() => {
@@ -578,6 +611,28 @@ async function handleDelete(s) {
   if (!confirm(`确定删除「${s.name}」？`)) return
   await deleteSchedule(s.id)
   await refresh()
+}
+
+async function handleBatchDelete() {
+  if (!confirm(`确定删除选中的 ${selectedScheduleIds.value.size} 个定时任务？`)) return
+  await batchDeleteSchedules([...selectedScheduleIds.value])
+  selectedScheduleIds.value = new Set()
+  await refresh()
+}
+
+async function handleExport() {
+  try {
+    const ids = selectedScheduleIds.value.size > 0 ? [...selectedScheduleIds.value] : []
+    const blob = await exportSchedules(ids)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'schedules.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    errorMessage.value = `导出失败：${err.message}`
+  }
 }
 
 function triggerImport() {
