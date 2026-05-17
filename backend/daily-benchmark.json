@@ -14,7 +14,7 @@
     "benchmark": {
       "name": "MMLU (5-shot)",
       "category": "knowledge",
-      "config": {"tasks": ["mmlu_generative"], "num_fewshot": {"mmlu_generative": 5}, "limit": null, "batch_size": 1},
+      "config": {"tasks": ["mmlu_generative"], "num_fewshot": {"mmlu_generative": 5}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 32}},
       "metrics": {"accuracy": "exact_match"}
     }
   },
@@ -52,7 +52,7 @@
     "benchmark": {
       "name": "GSM8K (8-shot)",
       "category": "math",
-      "config": {"tasks": ["gsm8k"], "num_fewshot": {"gsm8k": 8}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 512}},
+      "config": {"tasks": ["gsm8k"], "num_fewshot": {"gsm8k": 8}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 1024}},
       "metrics": {"accuracy": "exact_match"}
     }
   },
@@ -90,7 +90,7 @@
     "benchmark": {
       "name": "MMLU (5-shot)",
       "category": "knowledge",
-      "config": {"tasks": ["mmlu_generative"], "num_fewshot": {"mmlu_generative": 5}, "limit": null, "batch_size": 1},
+      "config": {"tasks": ["mmlu_generative"], "num_fewshot": {"mmlu_generative": 5}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 32}},
       "metrics": {"accuracy": "exact_match"}
     }
   },
@@ -128,7 +128,7 @@
     "benchmark": {
       "name": "GSM8K (8-shot)",
       "category": "math",
-      "config": {"tasks": ["gsm8k"], "num_fewshot": {"gsm8k": 8}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 512}},
+      "config": {"tasks": ["gsm8k"], "num_fewshot": {"gsm8k": 8}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 1024}},
       "metrics": {"accuracy": "exact_match"}
     }
   },
@@ -185,7 +185,7 @@
     "benchmark": {
       "name": "GSM8K (8-shot)",
       "category": "math",
-      "config": {"tasks": ["gsm8k"], "num_fewshot": {"gsm8k": 8}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 512}},
+      "config": {"tasks": ["gsm8k"], "num_fewshot": {"gsm8k": 8}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 1024}},
       "metrics": {"accuracy": "exact_match"}
     }
   },
@@ -204,7 +204,7 @@
     "benchmark": {
       "name": "MMLU (5-shot)",
       "category": "knowledge",
-      "config": {"tasks": ["mmlu_generative"], "num_fewshot": {"mmlu_generative": 5}, "limit": null, "batch_size": 1},
+      "config": {"tasks": ["mmlu_generative"], "num_fewshot": {"mmlu_generative": 5}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 32}},
       "metrics": {"accuracy": "exact_match"}
     }
   },
@@ -229,7 +229,7 @@
   },
   {
     "name": "deepseek-r1-7b / GSM8K (8-shot)",
-    "cron_expr": "2 8 * * *",
+    "cron_expr": "2 6 * * *",
     "llm": {
       "provider": "custom",
       "api_base": "http://localhost:11434/v1",
@@ -242,13 +242,13 @@
     "benchmark": {
       "name": "GSM8K (8-shot)",
       "category": "math",
-      "config": {"tasks": ["gsm8k"], "num_fewshot": {"gsm8k": 8}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 512}},
+      "config": {"tasks": ["gsm8k"], "num_fewshot": {"gsm8k": 8}, "limit": null, "batch_size": 1, "generation_kwargs": {"max_gen_toks": 2048}},
       "metrics": {"accuracy": "exact_match"}
     }
   },
   {
     "name": "deepseek-r1-7b / HumanEval (0-shot)",
-    "cron_expr": "32 8 * * *",
+    "cron_expr": "32 6 * * *",
     "llm": {
       "provider": "custom",
       "api_base": "http://localhost:11434/v1",
