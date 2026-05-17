@@ -21,6 +21,10 @@ COPY backend/ ./
 ENV HF_DATASETS_CACHE=/app/datasets
 COPY datasets/ /app/datasets/
 
+# Copy HF hub cache (dataset loading scripts) for fully offline use
+ENV HF_HUB_CACHE=/app/hf_cache
+COPY hf_cache/ /app/hf_cache/
+
 # Copy frontend build output
 COPY --from=frontend-build /build/dist ./static/
 

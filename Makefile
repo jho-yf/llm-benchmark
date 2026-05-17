@@ -81,7 +81,7 @@ docker-logs: logs
 # 清理
 clean:
 	rm -rf frontend/dist frontend/node_modules
-	rm -rf datasets/
+	rm -rf datasets/ hf_cache/
 	rm -rf backend/data/benchmark.db
 	rm -rf backend/logs/*.log
 	find . -type d -name __pycache__ -exec rm -rf {} +

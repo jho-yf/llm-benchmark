@@ -379,11 +379,13 @@ def main():
     benchmark_config = payload["benchmark_config"]
     llm_config = payload["llm_config"]
 
-    datasets_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "datasets",
+    project_dir = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     )
+    datasets_dir = os.path.join(project_dir, "datasets")
+    hf_cache_dir = os.path.join(project_dir, "hf_cache")
     os.environ.setdefault("HF_DATASETS_CACHE", os.environ.get("HF_DATASETS_CACHE", datasets_dir))
+    os.environ.setdefault("HF_HUB_CACHE", os.environ.get("HF_HUB_CACHE", hf_cache_dir))
     os.environ.setdefault("HF_DATASETS_OFFLINE", "1")
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
@@ -457,18 +459,23 @@ def main():
     def _resolve_tasks(task_list):
         """Load tasks, filter incompatible ones, return resolved list."""
         resolved = []
+        skip_reasons = []
         for t in task_list:
             try:
                 task_dict = tm.load_task_or_group(t)
                 output_types = _collect_output_types(task_dict)
                 if output_types & _CHAT_INCOMPATIBLE:
-                    sys.stderr.write(f"Skipping {t}: requires loglikelihood (incompatible with Chat API)\n")
+                    reason = f"{t}: requires loglikelihood (incompatible with Chat API)"
+                    sys.stderr.write(f"Skipping {reason}\n")
+                    skip_reasons.append(reason)
                 else:
                     resolved.append(t)
             except Exception as e:
-                sys.stderr.write(f"Skipping {t}: failed to load - {e}\n")
+                reason = f"{t}: failed to load - {e}"
+                sys.stderr.write(f"Skipping {reason}\n")
                 sys.stderr.flush()
-        return resolved
+                skip_reasons.append(reason)
+        return resolved, skip_reasons
 
     def _run_single_benchmark(task_list, fewshot_val):
         base_url = llm_config["api_base"].rstrip("/")
@@ -541,12 +548,12 @@ def main():
 
     task_list = _map_tasks(tasks_raw)
     num_fewshot = _map_fewshot(num_fewshot, task_list)
-    task_list = _resolve_tasks(task_list)
+    task_list, skip_reasons = _resolve_tasks(task_list)
 
     if not task_list:
-        msg = "所有任务均不兼容 Chat API（需要 loglikelihood 支持）。被过滤的任务: " + ", ".join(tasks_raw)
+        msg = "所有任务被过滤。原因:\n" + "\n".join(skip_reasons)
         sys.stderr.write(msg + "\n")
-        sys.stdout.write(json.dumps({"error": msg, "results": {}, "configs": {}}))
+        sys.stdout.write(json.dumps({"error": msg, "results": {}, "configs": {}}, ensure_ascii=False))
         return
 
     def _sanitize(obj):
